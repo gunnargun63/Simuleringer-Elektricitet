@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="da" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>(U,I)-karakteristik — Simulering</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#030810;--bg1:#060e18;--bg2:#0a1622;--bg3:#0f1e2d;
+  --border:#1a3a52;
+  --green:#00ff9f;--cyan:#00cfff;--yellow:#ffd93d;
+  --text:#d0eef5;--dim:#8ec8d8;
+  --font:'Courier New','Lucida Console',monospace;
+  --tr:0.15s ease;
+  --res:#00cfff;--bulb:#ffd93d;--led:#ff4466;--ntc:#00ff9f;
+}
+[data-theme="light"]{
+  --bg0:#e8e0d2;--bg1:#f4eee3;--bg2:#fdfaf4;--bg3:#fdfaf4;
+  --border:#d6cbb8;
+  --green:#1D9E75;--cyan:#378ADD;--yellow:#c07800;
+  --text:#1a1a1a;--dim:#333333;
+  --res:#378ADD;--bulb:#c07800;--led:#c0306a;--ntc:#1D9E75;
+}
+[data-theme="light"] canvas{border-color:#d6cbb8}
+[data-theme="light"] h1{text-shadow:none}
+[data-theme="light"] .sec-title{color:#1D9E75;font-weight:700;border-bottom-color:#d6cbb8}
+[data-theme="light"] .mlabel{font-weight:700}
+[data-theme="light"] .explain-box p{color:#161616;font-weight:700}
+[data-theme="light"] .acc{color:#2767a8}
+[data-theme="light"] .acc-y{color:#9c5e00}
+[data-theme="light"] .btn-sm{color:#1a1a1a;font-weight:700}
+[data-theme="light"] .btn-sm-util:hover{box-shadow:none;background:#e8f5ee}
+[data-theme="light"] .comp-btn:hover{box-shadow:none}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg0);color:var(--text);font-family:var(--font);
+  display:flex;flex-direction:column;align-items:flex-start;
+  padding:14px 18px 24px;gap:11px;min-height:100vh;transition:background .3s,color .3s}
+header{display:flex;align-items:baseline;gap:10px;width:100%;position:relative}
+.bolt-icon{width:22px;height:22px;color:var(--yellow);animation:gp 2.5s ease-in-out infinite;flex-shrink:0;display:inline-flex}
+.bolt-icon svg{display:block;width:100%;height:100%;fill:currentColor}
+@keyframes gp{0%,100%{opacity:1;filter:drop-shadow(0 0 5px var(--yellow))}50%{opacity:.55;filter:none}}
+h1{font-family:'Orbitron',monospace;font-size:15px;font-weight:700;
+  letter-spacing:.20em;color:var(--green);text-transform:uppercase}
+.subtitle{font-size:10px;color:var(--dim);letter-spacing:.12em}
+.header-btns{position:absolute;right:0;top:0;display:flex;gap:8px}
+.hbtn{font-family:var(--font);font-size:10px;
+  color:var(--dim);background:var(--bg2);border:1px solid var(--border);
+  padding:7px 12px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;transition:var(--tr)}
+.hbtn:hover{color:var(--green);border-color:var(--green)}
+.main-row{display:flex;gap:10px;align-items:flex-start;width:100%;flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.col1{width:380px}
+.col2{width:470px}
+.col3{width:262px}
+canvas{display:block;border:1px solid var(--border);flex-shrink:0;background:var(--bg1)}
+.right-panel{display:flex;flex-direction:column;gap:8px;width:262px;flex-shrink:0}
+.box{background:var(--bg1);border:1px solid var(--border);padding:11px 12px;
+  display:flex;flex-direction:column;gap:8px}
+.sec-title{font-size:11px;letter-spacing:.22em;color:var(--green);
+  text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:5px}
+/* component selector */
+.comp-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.comp-btn{font-family:var(--font);font-size:11px;letter-spacing:.06em;border:1px solid var(--border);
+  background:var(--bg3);color:var(--dim);padding:9px 6px;cursor:pointer;text-align:center;
+  transition:var(--tr);user-select:none;text-transform:uppercase}
+.comp-btn:hover{color:var(--text);border-color:var(--dim)}
+.comp-btn.active{color:var(--bg0);font-weight:700}
+.comp-btn.active.res{background:var(--res);border-color:var(--res)}
+.comp-btn.active.bulb{background:var(--bulb);border-color:var(--bulb)}
+.comp-btn.active.led{background:var(--led);border-color:var(--led)}
+.comp-btn.active.ntc{background:var(--ntc);border-color:var(--ntc)}
+[data-theme="light"] .comp-btn.active{color:#fff}
+/* sliders */
+.slider-block{display:flex;flex-direction:column;gap:5px}
+.slider-top{display:flex;justify-content:space-between;align-items:baseline}
+.slider-name{font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.rmode-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:3px}
+.rmode-btn{font-family:var(--font);font-size:10px;letter-spacing:.04em;border:1px solid var(--border);
+  background:var(--bg3);color:var(--dim);padding:6px 4px;cursor:pointer;text-align:center;
+  transition:var(--tr);user-select:none;text-transform:uppercase}
+.rmode-btn:hover{color:var(--text);border-color:var(--dim)}
+.rmode-btn.active{background:var(--res);border-color:var(--res);color:var(--bg0);font-weight:bold}
+[data-theme="light"] .rmode-btn.active{color:#fff}
+.mat-sel{width:100%;font-family:var(--font);font-size:13px;font-weight:bold;background:var(--bg3);
+  color:var(--cyan);border:1px solid var(--border);padding:6px 7px;cursor:pointer;border-radius:2px}
+.wire-result{font-family:'Courier New',monospace;font-size:12px;color:var(--text);
+  background:var(--bg3);border:1px solid var(--border);padding:8px 9px;border-radius:2px;line-height:1.6;margin-top:3px}
+.wire-result b{color:var(--cyan);font-size:15px;font-weight:bold}
+.wire-result .rho{color:var(--dim)}
+.slider-val{font-family:'Courier New',monospace;font-weight:bold;font-size:14px;color:var(--cyan)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;border-radius:50%;background:var(--green);cursor:pointer;border:none}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;
+  background:var(--green);cursor:pointer;border:none}
+input[type=range]:disabled{opacity:.3;cursor:not-allowed}
+/* meters */
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.meter{background:var(--bg3);border:1px solid var(--border);padding:7px 9px;border-radius:2px}
+.mlabel{font-size:9px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+.mval{font-family:'Courier New',monospace;font-weight:bold;font-size:17px;color:var(--cyan);margin-top:2px}
+.mval small{font-size:13px;color:var(--dim);font-weight:bold}
+.mval .ohm{font-size:15px;color:var(--dim);font-weight:bold}
+.mnote{font-size:9px;color:var(--yellow);letter-spacing:.04em;min-height:11px;margin-top:1px}
+/* action buttons */
+.btn-sm{font-family:var(--font);font-size:10px;letter-spacing:.08em;border:1px solid var(--border);
+  background:var(--bg3);color:var(--dim);padding:7px 8px;cursor:pointer;
+  text-transform:uppercase;transition:var(--tr);user-select:none}
+.btn-sm:hover{color:var(--green);border-color:var(--green);box-shadow:0 0 8px var(--green)}
+[data-theme="light"] .btn-sm:hover{box-shadow:none;background:#e8f5ee}
+.btn-sm.on{color:var(--green);border-color:var(--green)}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.explain-box p{font-size:11px;color:var(--text);line-height:1.65;letter-spacing:.02em}
+.explain-box p+p{margin-top:6px}
+.acc{color:var(--cyan)}.acc-y{color:var(--yellow)}
+.footer{font-size:9px;color:var(--dim);letter-spacing:.06em;margin-top:4px}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="bolt-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg></span>
+  <h1>(U,I)-karakteristik</h1>
+  <span class="subtitle">OHMSK &middot; GL&Oslash;DEP&AElig;RE &middot; LED &middot; NTC</span>
+  <div class="header-btns">
+    <button class="hbtn" id="copyBtn" onclick="copyCode()">&#10697; Kopier kode</button>
+    <button class="hbtn" id="themeBtn" onclick="toggleTheme()">&#9728; Lys tilstand</button>
+  </div>
+</header>
+
+<div class="main-row">
+
+  <div class="col col1">
+    <canvas id="graph" width="380" height="370"></canvas>
+    <div class="box analyse-box">
+      <div class="sec-title">M&aring;ling &amp; analyse</div>
+      <div class="btn-grid">
+        <button class="btn-sm" onclick="recordPoint()">&#9679; Registr&eacute;r m&aring;ling</button>
+        <button class="btn-sm" id="sweepBtn" onclick="autoSweep()">&#8635; Auto-sweep</button>
+        <button class="btn-sm" onclick="clearPoints()">&#10005; Nulstil m&aring;linger</button>
+        <button class="btn-sm" id="curveBtn" onclick="toggleCurve()">&#9583; Teoretisk kurve</button>
+        <button class="btn-sm" id="axesBtn" onclick="toggleAxes()">&#8645; Byt akser (I&harr;U)</button>
+        <button class="btn-sm" id="ghostBtn" onclick="freezeGhost()">&#128204; Frys som kurve</button>
+      </div>
+      <div id="ghostInfo" style="display:none;font-size:11px;letter-spacing:.04em;margin-top:4px">
+        <span id="ghostLabel"></span>
+        <span onclick="clearGhost()" style="cursor:pointer;text-decoration:underline;margin-left:6px">ryd</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col col2">
+    <canvas id="circuit" width="470" height="370"></canvas>
+    <div class="box explain-box" id="explainBox"></div>
+  </div>
+
+  <div class="col col3">
+    <div class="box">
+      <div class="sec-title">Komponent</div>
+      <div class="comp-row">
+        <div class="comp-btn res active"  data-c="res"  onclick="selectComp('res')">Resistor</div>
+        <div class="comp-btn bulb"        data-c="bulb" onclick="selectComp('bulb')">Gl&oslash;dep&aelig;re</div>
+        <div class="comp-btn led"         data-c="led"  onclick="selectComp('led')">LED</div>
+        <div class="comp-btn ntc"         data-c="ntc"  onclick="selectComp('ntc')">NTC</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="slider-block">
+        <div class="slider-top">
+          <span class="slider-name">Sp&aelig;ndingskilde U</span>
+          <span class="slider-val" id="uVal">0,0 V</span>
+        </div>
+        <input type="range" id="uSlider" min="0" max="12" step="0.05" value="0">
+      </div>
+      <div class="slider-block" id="rBlock">
+        <div class="rmode-row">
+          <button id="rmodeDirect" class="rmode-btn active" onclick="selectRMode('direct')">S&aelig;t R direkte</button>
+          <button id="rmodeWire" class="rmode-btn" onclick="selectRMode('wire')">Byg en tr&aring;d</button>
+        </div>
+
+        <div id="rDirect">
+          <div class="slider-top">
+            <span class="slider-name">Resistans R</span>
+            <span class="slider-val" id="rVal">60 &Omega;</span>
+          </div>
+          <input type="range" id="rSlider" min="1" max="100" step="1" value="60">
+        </div>
+
+        <div id="rWire" style="display:none;flex-direction:column;gap:7px">
+          <div class="slider-top"><span class="slider-name">Materiale (20 &deg;C)</span></div>
+          <select class="mat-sel" id="matSel" onchange="selectMat(this.value)">
+            <option value="ag">S&oslash;lv</option>
+            <option value="cu">Kobber</option>
+            <option value="al">Aluminium</option>
+            <option value="fe">Jern</option>
+            <option value="const" selected>Konstantan</option>
+          </select>
+          <div class="slider-top"><span class="slider-name">L&aelig;ngde L</span><span class="slider-val" id="lVal">4,0 m</span></div>
+          <input type="range" id="lSlider" min="0.5" max="20" step="0.5" value="4">
+          <div class="slider-top"><span class="slider-name">Tv&aelig;rsnit A</span><span class="slider-val" id="aVal">0,10 mm&sup2;</span></div>
+          <input type="range" id="aSlider" min="0.05" max="2" step="0.05" value="0.1">
+          <div class="wire-result" id="wireResult"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="sec-title">M&aring;leinstrumenter</div>
+      <div class="meters">
+        <div class="meter"><div class="mlabel">Voltmeter</div><div class="mval" id="mU">0,0<small> V</small></div></div>
+        <div class="meter"><div class="mlabel">Amperemeter</div><div class="mval" id="mI">0<small> mA</small></div></div>
+        <div class="meter"><div class="mlabel">R = U / I</div><div class="mval" id="mR">&ndash; <span class="ohm">&Omega;</span></div><div class="mnote" id="mRnote"></div></div>
+        <div class="meter"><div class="mlabel">Effekt P = U&middot;I</div><div class="mval" id="mP">0<small> mW</small></div></div>
+      </div>
+      <div class="meter" id="tMeter" style="display:none">
+        <div class="mlabel" id="tLabel">Tr&aring;dens temperatur</div>
+        <div class="mval" id="mT">&ndash;<small> K</small></div>
+      </div>
+      <div class="meter">
+        <div class="mlabel">Elektronernes drifthastighed v</div>
+        <div class="mval" id="mV">0<small> &micro;m/s</small></div>
+        <div class="mnote" id="mVnote" style="color:var(--dim)">reel fart i Cu-tr&aring;d (1 mm&sup2;) &middot; animationen er kraftigt fremskyndet</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   (U,I)-KARAKTERISTIK
+   Fire komponenter med fysisk ærlige modeller. Eleven "måler"
+   først datapunkter (med realistisk spredning) og kan derefter
+   afsløre den teoretiske kurve.
+   ============================================================ */
+
+const G = document.getElementById('graph');
+const C = document.getElementById('circuit');
+const gx = G.getContext('2d');
+const cx = C.getContext('2d');
+const GW=G.width, GH=G.height, CW=C.width, CH=C.height;
+
+let isDark = true;
+function D(d,l){ return isDark ? d : l; }
+
+/* ---------- FYSIKMODELLER (verificeret numerisk) ---------- */
+// Glødepære: U^2/R(T) = k*(T^4 - Tamb^4),  R(T)=R0*(1+alpha*(T-Tamb))
+const B_Tamb=293, B_R0=2.4, B_alpha=0.0045, B_k=9.54e-14;
+function bulbR(T){ return B_R0*(1+B_alpha*(T-B_Tamb)); }
+function solveBulb(U){
+  if(U<=0) return {I:0, T:B_Tamb, R:B_R0};
+  let lo=B_Tamb, hi=4000;
+  for(let i=0;i<70;i++){
+    const T=0.5*(lo+hi);
+    const Pe=U*U/bulbR(T), Pr=B_k*(T*T*T*T - B_Tamb*B_Tamb*B_Tamb*B_Tamb);
+    if(Pe>Pr) lo=T; else hi=T;
+  }
+  const T=0.5*(lo+hi), R=bulbR(T);
+  return {I:U/R, T:T, R:R};
+}
+// NTC: R(T)=R0*exp(B*(1/T-1/T0)), selvopvarmning U^2/R = kth*(T-Tamb)
+const N_R0=300, N_B=3000, N_T0=298, N_kth=0.05, N_Tamb=298, N_CAP=336;
+function ntcR(T){ return N_R0*Math.exp(N_B*(1/T - 1/N_T0)); }
+function solveNtc(U){
+  if(U<=0) return {I:0, T:N_Tamb, R:ntcR(N_Tamb)};
+  const f = T => U*U/ntcR(T) - N_kth*(T-N_Tamb);   // find laveste rod (stabil gren)
+  let prev=N_Tamb, fprev=f(prev), root=null, step=0.2;
+  for(let T=N_Tamb+step; T<=N_CAP; T+=step){
+    const ft=f(T);
+    if(fprev*ft<=0){
+      let a=T-step, b=T;
+      for(let i=0;i<60;i++){ const m=0.5*(a+b); if(f(a)*f(m)<=0) b=m; else a=m; }
+      root=0.5*(a+b); break;
+    }
+    fprev=ft;
+  }
+  if(root===null) root=N_CAP;             // nær termisk grænse
+  const R=ntcR(root);
+  return {I:U/R, T:root, R:R};
+}
+// LED: diode + serieresistans.  U = n*VT*ln(I/Is+1) + I*Rs
+const L_n=2.0, L_VT=0.02585, L_Is=2.3e-18, L_Rs=6.0;
+function ledVd(I){ return L_n*L_VT*Math.log(I/L_Is + 1); }
+function solveLed(U){
+  if(U<=0) return {I:0, Vd:0, R:Infinity};
+  let lo=0, hi=2.0;
+  for(let i=0;i<70;i++){
+    const I=0.5*(lo+hi);
+    if(ledVd(I)+I*L_Rs < U) lo=I; else hi=I;
+  }
+  const I=0.5*(lo+hi);
+  return {I:I, Vd:ledVd(I), R:I>1e-9?U/I:Infinity};
+}
+
+/* ---------- KOMPONENT-KONFIGURATION ---------- */
+let R_ohm = 60;     // resistor-resistans (sættes direkte eller via tråd-byggeren)
+
+// Tråd-bygger: R = ρ·L/A ved 20 °C. Resistiviteter fra notens Tabel 2 (Ω·m).
+const MATS = {
+  ag:    {name:'Sølv',       rho:1.59e-8},
+  cu:    {name:'Kobber',     rho:1.68e-8},
+  al:    {name:'Aluminium',  rho:2.65e-8},
+  fe:    {name:'Jern',       rho:9.71e-8},
+  const: {name:'Konstantan', rho:4.90e-7}
+};
+let rMode='direct', wireMat='const', wireL=4, wireA=0.10;   // L i m, A i mm²
+function fmtR(R){
+  if(R>=100) return fmt(R,0);
+  if(R>=10)  return fmt(R,1);
+  if(R>=1)   return fmt(R,2);
+  if(R>=0.1) return fmt(R,3);
+  return fmt(R,4);
+}
+function updateWireDisplay(){
+  const rho=MATS[wireMat].rho;
+  const Rw=rho*wireL/(wireA*1e-6);
+  document.getElementById('lVal').textContent = fmt(wireL,1)+' m';
+  document.getElementById('aVal').innerHTML    = fmt(wireA,2)+' mm²';
+  const rhoUm=rho*1e6;   // µΩ·m (notens enhed)
+  document.getElementById('wireResult').innerHTML =
+    '<span class="rho">ρ = '+fmt(rhoUm, rhoUm<0.1?4:3)+' µΩ·m</span><br>'+
+    'R = ρ·L/A = <b>'+fmtR(Rw)+' Ω</b>';
+  return Rw;
+}
+function recomputeWire(){
+  const Rw=updateWireDisplay();
+  if(rMode==='wire'){ R_ohm=Rw; refresh(); }
+}
+function selectMat(key){ wireMat=key; recomputeWire(); }
+function selectRMode(mode){
+  rMode=mode;
+  document.getElementById('rmodeDirect').classList.toggle('active', mode==='direct');
+  document.getElementById('rmodeWire').classList.toggle('active', mode==='wire');
+  document.getElementById('rDirect').style.display = mode==='direct' ? 'block':'none';
+  document.getElementById('rWire').style.display   = mode==='wire'   ? 'flex':'none';
+  R_ohm = (mode==='wire') ? updateWireDisplay() : parseFloat(document.getElementById('rSlider').value);
+  refresh();
+}
+
+const COMP = {
+  res:  { name:'Ohmsk resistor', col:()=>D('#00cfff','#378ADD'), Umax:12, hasR:true,
+          imax:()=>niceMax(12/R_ohm),
+          solve:U=>({I:U/R_ohm, R:R_ohm}) },
+  bulb: { name:'Glødepære',       col:()=>D('#ffd93d','#c07800'), Umax:12, hasR:false,
+          imax:()=>0.5, solve:solveBulb },
+  led:  { name:'LED',             col:()=>D('#ff4466','#c0306a'), Umax:3,  hasR:false,
+          imax:()=>0.18, solve:solveLed },
+  ntc:  { name:'NTC-resistor',    col:()=>D('#00ff9f','#1D9E75'), Umax:12, hasR:false,
+          imax:()=>0.08, solve:solveNtc }
+};
+function niceMax(v){
+  const steps=[0.05,0.08,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.8,1,1.2,1.5,2,2.5,3,4,5,6,8,10,12];
+  for(const s of steps) if(v<=s*1.0001) return s;
+  return Math.ceil(v*10)/10;
+}
+
+let comp='res';
+let U=0;
+let points=[];          // målepunkter {U,I}
+let showCurve=false;
+let sweeping=false;
+let axesSwapped=false;  // false: U vandret, I lodret (Figur 7/8)
+let ghost=null;         // frosset spøgelseskurve {comp,R,col,label,Umax,imax}
+
+// drifthastighed: v = I/(n·e·A) for kobbertråd, 1 mm²
+const NE=8.5e28, ECH=1.602e-19;                 // n [1/m³] (Cu, jf. noten), e [C]
+function wireArea(){ return (comp==='res' && rMode==='wire') ? wireA*1e-6 : 1e-6; }  // m²
+function driftV(I){ return I/(NE*ECH*wireArea()); } // m/s
+// I tråd-tilstand: v = I/(neA) = U/(neρL) — uafhængig af A, aftager med L.
+
+/* ---------- FORKLARINGSTEKSTER ---------- */
+const EXPLAIN = {
+  res:`<p>En <span class="acc">resistor (også kaldt ohmsk resistor)</span> opfylder <span class="acc-y">Ohms lov</span>: R er konstant, uafhængig af strømmen.</p>
+       <p>(U,I)-karakteristikken bliver en <span class="acc">ret linje gennem (0,0)</span>. Hældningen er 1/R — jo mindre R, jo stejlere linje.</p>
+       <p><span class="acc-y">Byt akser</span> for at få U op ad den lodrette akse: så aflæses R <b>direkte</b> som hældningen – jo større R, jo stejlere linje.</p>`,
+  bulb:`<p>En <span class="acc-y">glødepære</span> er <b>ikke</b> ohmsk. Strømmen varmer glødetråden op, og tråden får større resistans når den bliver varm (jf. temperaturkoefficienten).</p>
+        <p>Derfor stiger I <span class="acc">degressivt</span>: kurven krummer <b>nedad</b>. R = U/I <span class="acc-y">vokser</span> med spændingen.</p>
+        <p>Tråden begynder at gløde svagt rødt omkring 800 K — ved fuld spænding er den gulhvid (~2700 K).</p>`,
+  led:`<p>En <span class="acc">LED</span> (lysdiode) leder næsten ingen strøm før <span class="acc-y">tærskelspændingen</span> (~1,8 V her).</p>
+       <p>Derover stiger strømmen <span class="acc">meget stejlt</span>. Karakteristikken er stærkt ikke-lineær, og dioden leder kun den ene vej.</p>
+       <p>R = U/I giver ingen mening som materialekonstant her — den falder dramatisk omkring tærsklen.</p>`,
+  ntc:`<p>En <span class="acc">NTC-resistor</span> (Negative Temperature Coefficient) gør det <b>modsatte</b> af glødepæren: resistansen <span class="acc">falder</span> når den bliver varm.</p>
+       <p>Selvopvarmning ved store strømme sænker R, så I stiger <span class="acc-y">progressivt</span> — kurven krummer <b>opad</b>.</p>
+       <p>NTC'er bruges bl.a. som temperaturfølere og til batteriovervågning i smartphones.</p>`
+};
+
+/* ---------- UI ---------- */
+function selectComp(c){
+  if(sweeping) return;
+  comp=c; U=0;
+  document.querySelectorAll('.comp-btn').forEach(b=>b.classList.toggle('active', b.dataset.c===c));
+  const us=document.getElementById('uSlider');
+  us.max=COMP[c].Umax; us.value=0;
+  document.getElementById('rBlock').style.display = COMP[c].hasR ? 'flex':'none';
+  document.getElementById('tMeter').style.display = (c==='bulb'||c==='ntc') ? 'block':'none';
+  document.getElementById('tLabel').textContent = c==='bulb' ? 'Trådens temperatur' : 'NTC-temperatur';
+  document.getElementById('explainBox').innerHTML = EXPLAIN[c];
+  clearPoints();
+  refresh();
+}
+document.getElementById('uSlider').addEventListener('input', e=>{
+  if(sweeping) return;
+  U=parseFloat(e.target.value); refresh();
+});
+document.getElementById('rSlider').addEventListener('input', e=>{
+  R_ohm=parseFloat(e.target.value);
+  document.getElementById('rVal').innerHTML = R_ohm+' &Omega;';
+  refresh();
+});
+document.getElementById('lSlider').addEventListener('input', e=>{ wireL=parseFloat(e.target.value); recomputeWire(); });
+document.getElementById('aSlider').addEventListener('input', e=>{ wireA=parseFloat(e.target.value); recomputeWire(); });
+
+function recordPoint(){
+  if(U<=0) return;
+  const s=COMP[comp].solve(U);
+  // realistisk målespredning: ~1,5 % relativt + lille absolut, plus lidt på U
+  const Imax=COMP[comp].imax();
+  const noiseI = s.I*(1+gauss()*0.015) + gauss()*0.004*Imax;
+  const noiseU = U*(1+gauss()*0.006);
+  points.push({U:Math.max(0,noiseU), I:Math.max(0,noiseI)});
+  refresh();
+}
+function clearPoints(){ points=[]; refresh(); }
+function toggleCurve(){
+  showCurve=!showCurve;
+  document.getElementById('curveBtn').classList.toggle('on', showCurve);
+  refresh();
+}
+function toggleAxes(){
+  axesSwapped=!axesSwapped;
+  document.getElementById('axesBtn').classList.toggle('on', axesSwapped);
+  refresh();
+}
+const GHOST_COL = '#ff9d3c';
+function freezeGhost(){
+  ghost={ comp:comp, R:R_ohm, col:GHOST_COL,
+          label:COMP[comp].name + (COMP[comp].hasR ? ' '+fmtR(R_ohm)+' Ω' : ''),
+          Umax:COMP[comp].Umax, imax:COMP[comp].imax() };
+  const info=document.getElementById('ghostInfo');
+  info.style.display='block';
+  document.getElementById('ghostLabel').innerHTML =
+    '<span style="color:'+GHOST_COL+'">▬ spøgelse: '+ghost.label+'</span>';
+  document.getElementById('ghostBtn').classList.add('on');
+  refresh();
+}
+function clearGhost(){
+  ghost=null;
+  document.getElementById('ghostInfo').style.display='none';
+  document.getElementById('ghostBtn').classList.remove('on');
+  refresh();
+}
+// strøm for et givet (komponent, R) ved spænding u — bruges til spøgelseskurven
+function ghostI(u){
+  if(ghost.comp==='res') return u/ghost.R;
+  return COMP[ghost.comp].solve(u).I;
+}
+function autoSweep(){
+  if(sweeping){ return; }
+  sweeping=true; points=[];
+  const btn=document.getElementById('sweepBtn'); btn.textContent='… sweeper';
+  const us=document.getElementById('uSlider');
+  const Umax=COMP[comp].Umax, N=22; let i=0;
+  const tick=()=>{
+    U = Umax * i/N;
+    us.value=U;
+    if(U>0) recordPoint(); else refresh();
+    i++;
+    if(i<=N){ setTimeout(tick,70); }
+    else { sweeping=false; btn.innerHTML='&#8635; Auto-sweep'; }
+  };
+  tick();
+}
+
+// simpel gaussisk støj (Box–Muller)
+function gauss(){
+  let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function fmt(x,dec){ return x.toFixed(dec).replace('.',','); }
+
+function refresh(){
+  const s=COMP[comp].solve(U);
+  const I=s.I;
+  // målere
+  document.getElementById('uVal').textContent = fmt(U,1)+' V';
+  document.getElementById('mU').innerHTML = fmt(U,1)+'<small> V</small>';
+  const mA=I*1000;
+  document.getElementById('mI').innerHTML = (mA<1000? fmt(mA, mA<10?2:0) : fmt(I, I<100?2:1))+'<small> '+(mA<1000?'mA':'A')+'</small>';
+  // R = U/I
+  const Rm=document.getElementById('mR'), Rn=document.getElementById('mRnote');
+  if(U>0 && I>1e-6){
+    const Rv=U/I;
+    Rm.innerHTML = (Rv>=1000? fmt(Rv/1000,2)+' <span class="ohm">k&Omega;</span>' : fmtR(Rv)+' <span class="ohm">&Omega;</span>');
+    Rn.textContent = comp==='res' ? 'konstant' : (comp==='bulb'?'vokser ↑':(comp==='ntc'?'falder ↓':'ændrer sig'));
+  } else { Rm.innerHTML='&ndash; <span class="ohm">&Omega;</span>'; Rn.textContent=''; }
+  // P
+  const P=U*I, mW=P*1000;
+  document.getElementById('mP').innerHTML = (mW<1000? fmt(mW, mW<10?2:0) : fmt(P,2))+'<small> '+(mW<1000?'mW':'W')+'</small>';
+  // drifthastighed v = I/(n·e·A) med trådens faktiske A
+  const vms=driftV(I);   // m/s
+  document.getElementById('mV').innerHTML = (vms>=1e-3)
+      ? fmt(vms*1e3, vms*1e3<10?2:1)+'<small> mm/s</small>'
+      : fmt(vms*1e6, vms*1e6<10?2:1)+'<small> &micro;m/s</small>';
+  document.getElementById('mVnote').innerHTML = (comp==='res' && rMode==='wire')
+      ? 'reel fart (A = '+fmt(wireA,2)+' mm²) &middot; animationen er fremskyndet'
+      : 'reel fart (antaget Cu-tr&aring;d, 1 mm²) &middot; animationen er fremskyndet';
+  // T
+  if(comp==='bulb'||comp==='ntc'){
+    document.getElementById('mT').innerHTML = fmt(s.T,0)+'<small> K</small> &nbsp;<small style="color:var(--dim)">('+fmt(s.T-273,0)+' °C)</small>';
+  }
+  drawGraph(s);
+  drawCircuit(s);
+}
+
+/* ---------- GRAF ---------- */
+function drawGraph(s){
+  gx.clearRect(0,0,GW,GH);
+  gx.fillStyle=D('#060e18','#f4eee3'); gx.fillRect(0,0,GW,GH);
+  const m={l:52,r:16,t:34,b:42};
+  const pw=GW-m.l-m.r, ph=GH-m.t-m.b;
+  // fælles akse-grænser så både aktiv kurve og spøgelse er synlige
+  const Umax=Math.max(COMP[comp].Umax, ghost?ghost.Umax:0);
+  const Imax=Math.max(COMP[comp].imax(),  ghost?ghost.imax:0);
+  const fmtU=u=>fmt(u, Umax<=4?1:0);
+  const fmtI=i=>fmt(i, Imax<0.2?3:(Imax<1?2:1));
+  // skærm-koordinat for et fysisk (u,i) — afhænger af akse-orientering
+  const SX = (u,i)=> axesSwapped ? m.l + Math.min(i,Imax)/Imax*pw : m.l + Math.min(u,Umax)/Umax*pw;
+  const SY = (u,i)=> axesSwapped ? m.t+ph - Math.min(u,Umax)/Umax*ph : m.t+ph - Math.min(i,Imax)/Imax*ph;
+
+  // hvilken variabel ligger på hvilken akse
+  const hor = axesSwapped ? {name:'I / A', max:Imax, f:fmtI} : {name:'U / V', max:Umax, f:fmtU};
+  const ver = axesSwapped ? {name:'U / V', max:Umax, f:fmtU} : {name:'I / A', max:Imax, f:fmtI};
+
+  // akse-navne (ensartet typografi, kraftig kontrast)
+  gx.font="bold 13px 'Courier New',monospace"; gx.fillStyle=D('#eaf6fa','#111');
+  gx.textAlign='left';  gx.fillText(ver.name, 8, m.t-12);
+  gx.fillStyle=COMP[comp].col(); gx.font="bold 12px 'Orbitron',monospace";
+  gx.textAlign='right'; gx.fillText(COMP[comp].name.toUpperCase(), GW-m.r, m.t-12);
+  // hældnings-hint (kun ohmsk resistor: ret linje)
+  if(comp==='res'){
+    gx.fillStyle=D('#bfe2ef','#333'); gx.font="bold 11px 'Courier New',monospace"; gx.textAlign='right';
+    gx.fillText(axesSwapped?'hældning = R':'hældning = 1/R', GW-m.r, m.t+2);
+  }
+
+  // gitter + tickstal
+  gx.strokeStyle=D('#1d3a52','#ddd2c0'); gx.lineWidth=1;
+  const tickCol=D('#bfe2ef','#222'); gx.font="bold 11px 'Courier New',monospace";
+  const nx=6;
+  for(let k=0;k<=nx;k++){
+    const x=m.l + k/nx*pw;
+    gx.beginPath(); gx.moveTo(x,m.t); gx.lineTo(x,m.t+ph); gx.stroke();
+    gx.fillStyle=tickCol; gx.textAlign='center'; gx.fillText(hor.f(hor.max*k/nx), x, m.t+ph+16);
+  }
+  const ny=5;
+  for(let k=0;k<=ny;k++){
+    const y=m.t+ph - k/ny*ph;
+    gx.beginPath(); gx.moveTo(m.l,y); gx.lineTo(m.l+pw,y); gx.stroke();
+    gx.fillStyle=tickCol; gx.textAlign='right'; gx.fillText(ver.f(ver.max*k/ny), m.l-7, y+4);
+  }
+  // akser
+  gx.strokeStyle=D('#5a7a90','#888'); gx.lineWidth=1.5;
+  gx.beginPath(); gx.moveTo(m.l,m.t); gx.lineTo(m.l,m.t+ph); gx.lineTo(m.l+pw,m.t+ph); gx.stroke();
+  gx.fillStyle=D('#eaf6fa','#111'); gx.font="bold 13px 'Courier New',monospace"; gx.textAlign='center';
+  gx.fillText(hor.name, m.l+pw/2, GH-9);
+
+  // spøgelseskurve (altid synlig når frosset)
+  if(ghost){
+    gx.strokeStyle=ghost.col; gx.lineWidth=2; gx.setLineDash([6,4]); gx.globalAlpha=0.95;
+    gx.beginPath();
+    for(let k=0;k<=240;k++){ const u=ghost.Umax*k/240, i=ghostI(u);
+      const x=SX(u,i), y=SY(u,i); k?gx.lineTo(x,y):gx.moveTo(x,y); }
+    gx.stroke(); gx.setLineDash([]); gx.globalAlpha=1;
+  }
+  // teoretisk kurve (aktiv komponent)
+  if(showCurve){
+    gx.strokeStyle=COMP[comp].col(); gx.lineWidth=2; gx.globalAlpha=0.9;
+    gx.beginPath();
+    for(let k=0;k<=240;k++){ const u=COMP[comp].Umax*k/240, i=COMP[comp].solve(u).I;
+      const x=SX(u,i), y=SY(u,i); k?gx.lineTo(x,y):gx.moveTo(x,y); }
+    gx.stroke(); gx.globalAlpha=1;
+  }
+
+  // målepunkter (kryds)
+  gx.strokeStyle=D('#eaf6fa','#1a1a1a'); gx.lineWidth=1.4;
+  for(const p of points){
+    if(p.U>Umax*1.02 || p.I>Imax*1.05) continue;
+    const x=SX(p.U,p.I), y=SY(p.U,p.I), r=3.2;
+    gx.beginPath(); gx.moveTo(x-r,y-r); gx.lineTo(x+r,y+r);
+                    gx.moveTo(x-r,y+r); gx.lineTo(x+r,y-r); gx.stroke();
+  }
+  // aktuelt arbejdspunkt + hjælpelinjer
+  if(U>0){
+    const x=SX(U,s.I), y=SY(U,s.I);
+    gx.strokeStyle=COMP[comp].col(); gx.globalAlpha=0.35; gx.setLineDash([3,3]);
+    gx.beginPath(); gx.moveTo(x,m.t+ph); gx.lineTo(x,y); gx.lineTo(m.l,y); gx.stroke();
+    gx.setLineDash([]); gx.globalAlpha=1;
+    gx.fillStyle=COMP[comp].col();
+    gx.shadowColor=isDark?COMP[comp].col():'transparent'; gx.shadowBlur=isDark?10:0;
+    gx.beginPath(); gx.arc(x,y,5,0,7); gx.fill();
+    gx.shadowBlur=0;
+  }
+}
+
+/* ---------- KREDSLØB (Figur 6-stil: A i serie, V parallelt) ---------- */
+function bbColor(T){
+  // simpel sortlegeme-agtig farve fra trådens temperatur
+  if(T<780) return null;
+  const pts=[[780,90,12,0],[1000,150,35,0],[1300,210,70,5],[1600,255,110,25],
+             [2000,255,165,70],[2400,255,205,130],[2800,255,240,205]];
+  let a=pts[0], b=pts[pts.length-1];
+  for(let i=0;i<pts.length-1;i++){ if(T>=pts[i][0]&&T<=pts[i+1][0]){ a=pts[i]; b=pts[i+1]; break; } }
+  if(T>=pts[pts.length-1][0]) a=b=pts[pts.length-1];
+  const f=(b[0]===a[0])?0:(T-a[0])/(b[0]-a[0]);
+  const r=Math.round(a[1]+f*(b[1]-a[1])), g=Math.round(a[2]+f*(b[2]-a[2])), bl=Math.round(a[3]+f*(b[3]-a[3]));
+  return 'rgb('+r+','+g+','+bl+')';
+}
+let flowPhase=0;
+// log-skalering af driftshastighed v (m/s) → pixelfart. Holder hele v-spændet (≈5
+// dekader) under loftet uden mætning, så L, U og materiale slår konsistent igennem.
+function pxSpeed(v){ return Math.min(6, Math.max(0.3, 7.15 + 0.49*Math.log(v))); }
+// Tegner driftende ladninger. Prikkerne er ligeligt fordelt i TID, så de automatisk
+// klumper (tæt) hvor farten er lav og spredes (tyndt) hvor farten er høj — dvs.
+// linjetæthed × fart = konstant flux, præcis kontinuiteten I = n·e·v·A.
+function drawFlowDots(fs, onlyComp, color, radius){
+  cx.fillStyle = color || D('#34d6ff','#1763b0');
+  const T=fs.T, N=fs.N, rad=radius||2.6;
+  for(let i=0;i<N;i++){
+    const p=(flowPhase + i*T/N)%T;
+    for(const sd of fs){
+      if(p>=sd.t0 && p<sd.t0+sd.tt){
+        if(onlyComp && !sd.comp) break;
+        const f=(p-sd.t0)/sd.tt;
+        cx.beginPath(); cx.arc(sd.x1+(sd.x2-sd.x1)*f, sd.y1+(sd.y2-sd.y1)*f, rad,0,7); cx.fill();
+        break;
+      }
+    }
+  }
+}
+function drawCircuit(s){
+  cx.clearRect(0,0,CW,CH);
+  cx.fillStyle=D('#060e18','#f4eee3'); cx.fillRect(0,0,CW,CH);
+  const wire=D('#3a6a88','#888'), lab=D('#d0eef5','#1a1a1a'), dim=D('#8ec8d8','#555');
+  cx.lineWidth=2; cx.strokeStyle=wire;
+  // rektangulær løkke
+  const L=70, Rr=400, Tp=70, Bt=300;
+  // hjørner
+  const path=[[L,Tp],[Rr,Tp],[Rr,Bt],[L,Bt]];
+  // tegn ledninger (med huller til batteri (venstre), komponent (top), A (top-højre), V (under komponent))
+  // Top-venstre -> komponent
+  const compX1=180, compX2=290, compY=Tp;     // komponent på toppen
+  const ampX=350;                              // amperemeter på toppen (efter komponent)
+  // Toppen: L..compX1 [komponent] compX2..ampX-18 (A) ampX+18..Rr
+  cx.beginPath();
+  cx.moveTo(L,Tp); cx.lineTo(compX1,Tp); cx.stroke();
+  cx.beginPath(); cx.moveTo(compX2,Tp); cx.lineTo(ampX-20,Tp); cx.stroke();
+  cx.beginPath(); cx.moveTo(ampX+20,Tp); cx.lineTo(Rr,Tp); cx.stroke();
+  // højre side
+  cx.beginPath(); cx.moveTo(Rr,Tp); cx.lineTo(Rr,Bt); cx.stroke();
+  // bund
+  cx.beginPath(); cx.moveTo(Rr,Bt); cx.lineTo(L,Bt); cx.stroke();
+  // venstre side med batteri-gab
+  const batY=185;
+  cx.beginPath(); cx.moveTo(L,Tp); cx.lineTo(L,batY-9); cx.stroke();
+  cx.beginPath(); cx.moveTo(L,batY+9); cx.lineTo(L,Bt); cx.stroke();
+
+  // ---- strømretning + animerede ladninger ----
+  // Farten følger driftshastigheden v = I/(n·e·A). I tråd-tilstand har tilledningen
+  // (fast tværsnit) og den tynde komponent-tråd FORSKELLIG fart: da I = n·e·v·A er
+  // konstant hele vejen rundt, speeder elektronerne op i den tynde tråd (kontinuitet).
+  let flowSegs=null;
+  if(s.I>1e-6){
+    const differential=(comp==='res' && rMode==='wire');
+    const A_LEAD=1.0;                                  // mm²: fast (tyk) tilledning
+    const vcomp=driftV(s.I);                           // i tråd: = U/(neρL), uafhængig af A
+    const compSpd=pxSpeed(vcomp);                      // log-skala: L, U, materiale uden mætning
+    // tilledningens fart: kontrast styres af A_komp/A_led (√-komprimeret for synlighed)
+    let leadSpd=compSpd;
+    if(differential){
+      const rf=Math.min(1.6, Math.max(0.25, Math.sqrt(wireA/A_LEAD)));
+      leadSpd=Math.min(6, Math.max(0.2, compSpd*rf));
+    }
+    const raw = differential ? [
+      [L,Tp,compX1,Tp,leadSpd,false],[compX1,Tp,compX2,Tp,compSpd,true],
+      [compX2,Tp,Rr,Tp,leadSpd,false],[Rr,Tp,Rr,Bt,leadSpd,false],
+      [Rr,Bt,L,Bt,leadSpd,false],[L,Bt,L,Tp,leadSpd,false]
+    ] : [
+      [L,Tp,Rr,Tp,compSpd,false],[Rr,Tp,Rr,Bt,compSpd,false],
+      [Rr,Bt,L,Bt,compSpd,false],[L,Bt,L,Tp,compSpd,false]
+    ];
+    let T=0; flowSegs=[];
+    for(const r of raw){
+      const len=Math.hypot(r[2]-r[0],r[3]-r[1]), tt=len/r[4];
+      flowSegs.push({x1:r[0],y1:r[1],x2:r[2],y2:r[3],comp:r[5],t0:T,tt:tt}); T+=tt;
+    }
+    flowSegs.T=T; flowSegs.N = 46;
+    flowPhase=(flowPhase+1)%T;
+    drawFlowDots(flowSegs, false);            // pass 1: alle prikker (dækkes af symboler)
+  }
+
+  // ---- BATTERI (én celle: lang tynd plade = +, kort tyk plade = −) ----
+  cx.strokeStyle=wire;
+  cx.lineWidth=2;   cx.beginPath(); cx.moveTo(L-19,batY-9); cx.lineTo(L+19,batY-9); cx.stroke(); // lang (+)
+  cx.lineWidth=5;   cx.beginPath(); cx.moveTo(L-9, batY+9); cx.lineTo(L+9, batY+9); cx.stroke(); // kort, tyk (−)
+  cx.lineWidth=2;
+  cx.fillStyle=lab; cx.font="bold 16px 'Courier New',monospace"; cx.textAlign='center';
+  cx.fillText('+', L-30, batY-5); cx.fillText('−', L-30, batY+16);
+  cx.font="bold 17px 'Courier New',monospace"; cx.textAlign='left';
+  cx.fillText(fmt(U,1)+' V', L+28, batY+6);
+
+  // ---- KOMPONENT ----
+  const cy=Tp;
+  drawComponent(comp, compX1, compX2, cy, s);
+  // i tråd-tilstand: tegn komponent-prikkerne igen OVEN på tråden, så man ser dem speede op
+  if(flowSegs && comp==='res' && rMode==='wire') drawFlowDots(flowSegs, true, D('#ffffff','#08233f'), 3.2);
+
+  // ---- AMPEREMETER (A) i serie på toppen ----
+  cx.strokeStyle=wire; cx.lineWidth=2; cx.fillStyle=D('#0a1622','#fff');
+  cx.beginPath(); cx.arc(ampX,Tp,20,0,7); cx.fill(); cx.stroke();
+  cx.fillStyle=COMP[comp].col(); cx.font="bold 17px 'Orbitron',monospace"; cx.textAlign='center';
+  cx.fillText('A', ampX, Tp+6);
+  const mA=s.I*1000;
+  cx.fillStyle=lab; cx.font="bold 14px 'Courier New',monospace";
+  cx.fillText((mA<1000?fmt(mA,mA<10?1:0)+' mA':fmt(s.I, s.I<100?2:1)+' A'), ampX, Tp-30);
+
+  // ---- VOLTMETER (V) parallelt over komponentens to poler ----
+  // To rette lodrette aftapninger fra polerne, ind i V — ingen knæk.
+  const vMidX=(compX1+compX2)/2, vY=190;
+  cx.strokeStyle=D('#5fa8c8','#777'); cx.lineWidth=1.6; cx.setLineDash([5,4]);
+  cx.beginPath(); cx.moveTo(compX1, Tp); cx.lineTo(compX1, vY); cx.lineTo(vMidX-20, vY); cx.stroke();
+  cx.beginPath(); cx.moveTo(compX2, Tp); cx.lineTo(compX2, vY); cx.lineTo(vMidX+20, vY); cx.stroke();
+  cx.setLineDash([]);
+  cx.fillStyle=D('#0a1622','#fff'); cx.lineWidth=2; cx.strokeStyle=wire;
+  cx.beginPath(); cx.arc(vMidX,vY,20,0,7); cx.fill(); cx.stroke();
+  cx.fillStyle=COMP[comp].col(); cx.font="bold 17px 'Orbitron',monospace";
+  cx.fillText('V', vMidX, vY+6);
+  cx.fillStyle=lab; cx.font="bold 14px 'Courier New',monospace";
+  cx.fillText(fmt(U,1)+' V', vMidX, vY+38);
+
+  // titel
+  cx.fillStyle=D('#aedaea','#333'); cx.font="bold 12px 'Courier New',monospace"; cx.textAlign='left';
+  cx.fillText('KREDSLØB  ·  A i serie, V parallelt over komponenten', 14, CH-12);
+}
+
+function drawComponent(type, x1, x2, y, s){
+  const w=x2-x1, midx=(x1+x2)/2, col=COMP[comp].col(), wire=D('#3a6a88','#888'),
+        lab=D('#eaf6fa','#111');
+  cx.lineWidth=2;
+  if(type==='res' && rMode==='wire'){
+    // tråd-tilstand: bare en tråd i resistor-farven (forskellig fra ledningerne)
+    cx.strokeStyle=col; cx.lineWidth=4; cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(x1,y); cx.lineTo(x2,y); cx.stroke();
+    cx.lineCap='butt';
+    cx.fillStyle=lab; cx.font="bold 14px 'Courier New',monospace"; cx.textAlign='center';
+    cx.fillText('R = '+fmtR(R_ohm)+' Ω', midx, y-16);
+  } else if(type==='res' || type==='ntc'){
+    // Dansk resistor-symbol: rektangel
+    const rw=66, rh=22;
+    cx.strokeStyle=wire; cx.beginPath(); cx.moveTo(x1,y); cx.lineTo(midx-rw/2,y); cx.stroke();
+    cx.beginPath(); cx.moveTo(midx+rw/2,y); cx.lineTo(x2,y); cx.stroke();
+    cx.fillStyle=D('#0a1622','#ffffff'); cx.strokeStyle=col; cx.lineWidth=2.5;
+    cx.beginPath(); cx.rect(midx-rw/2, y-rh/2, rw, rh); cx.fill(); cx.stroke();
+    if(type==='ntc'){
+      // termistor: skråpil gennem rektanglet (peger op mod højre)
+      cx.strokeStyle=col; cx.lineWidth=2;
+      const ax=midx-rw/2-4, ay=y+rh/2+5, bx=midx+rw/2-2, by=y-rh/2-7;
+      cx.beginPath(); cx.moveTo(ax,ay); cx.lineTo(bx,by); cx.stroke();
+      const ang=Math.atan2(by-ay, bx-ax), hl=10, hw=0.42;
+      cx.beginPath(); cx.moveTo(bx,by);
+      cx.lineTo(bx-hl*Math.cos(ang-hw), by-hl*Math.sin(ang-hw));
+      cx.lineTo(bx-hl*Math.cos(ang+hw), by-hl*Math.sin(ang+hw));
+      cx.closePath(); cx.fillStyle=col; cx.fill();
+      cx.fillStyle=lab; cx.font="bold 13px 'Courier New',monospace"; cx.textAlign='center';
+      cx.fillText('NTC', midx, y-24);
+      const dT=s.T-N_Tamb;                 // svag varmeglød ved selvopvarmning
+      if(dT>2){
+        const a=Math.min(0.55, dT/40);
+        const grd=cx.createRadialGradient(midx,y,2,midx,y,34);
+        grd.addColorStop(0,'rgba(255,90,40,'+a+')'); grd.addColorStop(1,'rgba(255,90,40,0)');
+        cx.fillStyle=grd; cx.beginPath(); cx.arc(midx,y,34,0,7); cx.fill();
+      }
+    } else {
+      cx.fillStyle=lab; cx.font="bold 14px 'Courier New',monospace"; cx.textAlign='center';
+      cx.fillText('R = '+fmtR(R_ohm)+' Ω', midx, y-20);
+    }
+  } else if(type==='bulb'){
+    // glødepære: cirkel med glødetråd
+    const r=22, by=y+8;
+    cx.strokeStyle=wire; cx.beginPath(); cx.moveTo(x1,y); cx.lineTo(midx-r,y); cx.stroke();
+    cx.beginPath(); cx.moveTo(midx+r,y); cx.lineTo(x2,y); cx.stroke();
+    // glød bag pæren
+    const bc=bbColor(s.T);
+    if(bc){
+      const inten=Math.min(1,(s.T-780)/1900);
+      const grd=cx.createRadialGradient(midx,by,3,midx,by,r+22+22*inten);
+      grd.addColorStop(0, bc); grd.addColorStop(0.4,'rgba(255,200,120,'+(0.35*inten+0.1)+')');
+      grd.addColorStop(1,'rgba(255,180,80,0)');
+      cx.fillStyle=grd; cx.beginPath(); cx.arc(midx,by,r+22+22*inten,0,7); cx.fill();
+    }
+    // glaskolbe
+    cx.strokeStyle=D('#5a8aa0','#999'); cx.lineWidth=1.6;
+    cx.fillStyle=D('rgba(20,40,55,0.4)','rgba(245,245,240,0.6)');
+    cx.beginPath(); cx.arc(midx,by,r,0,7); cx.fill(); cx.stroke();
+    // glødetråd (zigzag), farve = trådtemperatur
+    cx.strokeStyle = bc || D('#456','#999'); cx.lineWidth = bc?2.2:1.4;
+    if(bc && isDark){ cx.shadowColor=bc; cx.shadowBlur=8; }
+    cx.beginPath(); cx.moveTo(midx-9,by+8);
+    const fn=5;
+    for(let i=0;i<=fn;i++){ cx.lineTo(midx-9+18*i/fn, by+8-(i%2?12:0)); }
+    cx.stroke(); cx.shadowBlur=0;
+    // sokkel
+    cx.strokeStyle=wire; cx.lineWidth=2;
+    cx.beginPath(); cx.moveTo(midx-9,by+8); cx.lineTo(midx-9,y); cx.stroke();
+    cx.beginPath(); cx.moveTo(midx+9,by+8); cx.lineTo(midx+9,y); cx.stroke();
+  } else if(type==='led'){
+    // LED: trekant + streg + pile
+    const r=15;
+    cx.strokeStyle=wire; cx.beginPath(); cx.moveTo(x1,y); cx.lineTo(midx-r,y); cx.stroke();
+    cx.beginPath(); cx.moveTo(midx+r,y); cx.lineTo(x2,y); cx.stroke();
+    const on = s.I>0.0015;
+    const inten = on? Math.min(1, s.I/0.12):0;
+    if(on){
+      const grd=cx.createRadialGradient(midx,y,2,midx,y,18+24*inten);
+      grd.addColorStop(0,'rgba(255,60,90,'+(0.6*inten+0.2)+')'); grd.addColorStop(1,'rgba(255,60,90,0)');
+      cx.fillStyle=grd; cx.beginPath(); cx.arc(midx,y,18+24*inten,0,7); cx.fill();
+    }
+    // trekant (anode venstre -> katode)
+    cx.fillStyle = on? '#ff3355' : D('#33414a','#bbb');
+    cx.strokeStyle=col; cx.lineWidth=2;
+    cx.beginPath(); cx.moveTo(midx-r,y-r+3); cx.lineTo(midx-r,y+r-3); cx.lineTo(midx+r-4,y); cx.closePath();
+    cx.fill();
+    // katode-streg
+    cx.beginPath(); cx.moveTo(midx+r-4,y-r+3); cx.lineTo(midx+r-4,y+r-3); cx.stroke();
+    // lys-pile
+    if(on){
+      cx.strokeStyle='#ff5577'; cx.lineWidth=1.4;
+      for(let i=0;i<2;i++){
+        const ox=midx+2+i*9, oy=y-r-2;
+        cx.beginPath(); cx.moveTo(ox,oy); cx.lineTo(ox+7,oy-9); cx.stroke();
+        cx.beginPath(); cx.moveTo(ox+7,oy-9); cx.lineTo(ox+2,oy-8); cx.moveTo(ox+7,oy-9); cx.lineTo(ox+6,oy-3); cx.stroke();
+      }
+    }
+    cx.fillStyle=lab; cx.font="bold 13px 'Courier New',monospace"; cx.textAlign='center';
+    cx.fillText('LED', midx, y+r+14);
+  }
+}
+
+/* ---------- ANIMATION ---------- */
+function loop(){ drawCircuit(COMP[comp].solve(U)); requestAnimationFrame(loop); }
+
+/* ---------- TEMA / KOPIER ---------- */
+function toggleTheme(){
+  isDark=!isDark;
+  document.documentElement.setAttribute('data-theme', isDark?'':'light');
+  document.getElementById('themeBtn').innerHTML = isDark?'&#9728; Lys tilstand':'&#9790; Mørk tilstand';
+  refresh();
+}
+function copyCode(){
+  const btn=document.getElementById('copyBtn');
+  navigator.clipboard.writeText('<!DOCTYPE html>\n'+document.documentElement.outerHTML).then(()=>{
+    btn.innerHTML='&#10003; Kopieret!';
+    setTimeout(()=>{ btn.innerHTML='&#10697; Kopier kode'; }, 2000);
+  });
+}
+
+/* ---------- INIT ---------- */
+updateWireDisplay();
+selectComp('res');
+loop();
+</script>
+</body>
+</html>

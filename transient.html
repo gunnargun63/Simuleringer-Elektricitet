@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transient — kredsløbet finder ro</title>
+<style>
+:root{
+  --bg0:#030810; --bg1:#060e18; --bg2:#0a1622; --bg3:#0f1e2d;
+  --border:#1a3a52;
+  --green:#00ff9f; --cyan:#00cfff; --yellow:#ffd93d;
+  --text:#d0eef5; --dim:#8ec8d8;
+  --font:'Courier New','Lucida Console',monospace;
+  --tr:0.15s ease;
+  --pos:#ff5170; --neg:#3aa0ff;
+}
+[data-theme="light"]{
+  --bg0:#e8e0d2; --bg1:#f4eee3; --bg2:#fdfaf4; --bg3:#fdfaf4;
+  --border:#d6cbb8;
+  --green:#1D9E75; --cyan:#378ADD; --yellow:#c07800;
+  --text:#1a1a1a; --dim:#333333;
+  --pos:#d23b57; --neg:#2767a8;
+}
+[data-theme="light"] canvas      { border-color:#d6cbb8; }
+[data-theme="light"] h1          { text-shadow:none; }
+[data-theme="light"] .sec-title  { color:#1D9E75; font-weight:700; border-bottom-color:#d6cbb8; }
+[data-theme="light"] .mlabel     { font-weight:700; }
+[data-theme="light"] .explain-box p{ color:#161616; font-weight:700; }
+[data-theme="light"] .acc        { color:#2767a8; }
+[data-theme="light"] .acc-y      { color:#9c5e00; }
+[data-theme="light"] summary     { color:#0f5c43; font-weight:700; }
+[data-theme="light"] .btn-sm     { color:#1a1a1a; font-weight:700; }
+[data-theme="light"] .mode-btn.active,
+[data-theme="light"] .ctrl-btn.active { background:#378ADD; color:#fff; border-color:#378ADD; }
+[data-theme="light"] .power.active { background:#1D9E75; color:#fff; border-color:#1D9E75; }
+
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--bg0); color:var(--text);
+  font-family:var(--font); font-size:13px; line-height:1.5;
+  padding:14px;
+}
+.wrap{ max-width:1280px; margin:0 auto; }
+
+header{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px;
+}
+.bolt-icon{ width:24px; height:24px; color:var(--yellow); display:inline-flex;
+            animation:gp 2.5s ease-in-out infinite; flex-shrink:0; }
+.bolt-icon svg{ display:block; width:100%; height:100%; fill:currentColor; }
+@keyframes gp{
+  0%,100%{ opacity:1; filter:drop-shadow(0 0 5px var(--yellow)); }
+  50%    { opacity:.55; filter:none; }
+}
+h1{
+  font-size:15px; font-weight:700; letter-spacing:.18em; color:var(--green);
+  text-transform:uppercase; margin:0; flex:1 1 auto;
+}
+[data-theme="dark"] h1, html:not([data-theme]) h1{ text-shadow:0 0 8px var(--green); }
+.head-btns{ display:flex; gap:8px; }
+
+.btn-sm{
+  font-family:var(--font); font-size:10px; letter-spacing:.1em;
+  border:1px solid var(--dim); color:var(--dim); background:var(--bg2);
+  padding:6px 13px; cursor:pointer; text-transform:uppercase;
+  transition:var(--tr); user-select:none; display:inline-flex; align-items:center; gap:6px;
+}
+.btn-sm:hover{ border-color:var(--green); color:var(--green); box-shadow:0 0 8px var(--green); }
+.btn-sm svg{ width:13px; height:13px; fill:currentColor; }
+#themeBtn svg{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+/* Layout */
+/* Layout: venstre område (q + kredsløb øverst, strømgraf nedenunder) som EGET grid,
+   adskilt fra kontrolpanelet — så panelets højde (fx når R₂ dukker op) aldrig
+   flytter strømgrafen. */
+.main{ display:grid; grid-template-columns:1fr 286px; gap:14px; align-items:start; }
+.left{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; gap:14px; align-items:start; }
+.cell-q   { grid-column:1; grid-row:1; }
+.cell-cir { grid-column:2; grid-row:1; }
+.cell-time{ grid-column:1 / span 2; grid-row:2; }
+@media (max-width:1000px){
+  .main{ grid-template-columns:1fr; }
+  .left{ grid-template-columns:1fr; grid-template-rows:none; }
+  .cell-q,.cell-cir,.cell-time{ grid-column:1; grid-row:auto; }
+}
+
+.box{
+  background:var(--bg1); border:1px solid var(--border); padding:10px 12px;
+}
+.box + .box{ margin-top:14px; }
+.sec-title{
+  font-size:11px; letter-spacing:.22em; color:var(--green); text-transform:uppercase;
+  border-bottom:1px solid var(--border); padding-bottom:5px; margin:0 0 10px;
+}
+canvas{ width:100%; display:block; background:var(--bg1); border:1px solid var(--border); }
+
+/* Legend */
+.legend{ display:flex; flex-wrap:wrap; gap:14px; font-size:11px; color:var(--dim);
+         margin-top:9px; align-items:center; align-content:flex-start; height:24px; overflow:hidden; }
+.legend.thin{ height:auto; min-height:0; overflow:visible; }
+.legend span{ display:inline-flex; align-items:center; gap:6px; }
+.sw{ width:22px; height:11px; border:1px solid var(--border); display:inline-block; }
+.sw-grad{ background:linear-gradient(90deg,var(--neg),#7d8a96,var(--pos)); }
+.dotleg{ width:9px; height:9px; border-radius:50%; background:var(--cyan); display:inline-block; }
+
+/* Controls */
+.mode-row{ display:flex; gap:6px; margin-bottom:4px; }
+.mode-btn{
+  flex:1; font-family:var(--font); font-size:11px; letter-spacing:.06em;
+  border:1px solid var(--border); color:var(--dim); background:var(--bg3);
+  padding:8px 4px; cursor:pointer; text-transform:uppercase; transition:var(--tr);
+}
+.mode-btn:hover{ border-color:var(--cyan); color:var(--cyan); }
+.mode-btn.active{ background:var(--green); color:#03080f; border-color:var(--green); font-weight:700; }
+
+.power{
+  width:100%; font-family:var(--font); font-size:13px; letter-spacing:.14em;
+  border:1px solid var(--border); color:var(--dim); background:var(--bg3);
+  padding:11px 4px; cursor:pointer; text-transform:uppercase; transition:var(--tr);
+  display:flex; align-items:center; justify-content:center; gap:8px; margin:11px 0 4px;
+}
+.power:hover{ border-color:var(--green); color:var(--green); box-shadow:0 0 7px var(--green); }
+.power.active{ background:var(--green); color:#03080f; border-color:var(--green); font-weight:700; box-shadow:none; }
+.power svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; }
+
+.ctrl{ margin:13px 0; }
+.ctrl-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.ctrl-head label{ font-size:11px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+.ctrl-val{ font-size:13px; color:var(--cyan); font-weight:700; }
+input[type=range]{
+  -webkit-appearance:none; width:100%; height:4px; background:var(--bg3);
+  border:1px solid var(--border); outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:15px; height:15px; background:var(--cyan);
+  border:1px solid var(--bg0); cursor:pointer; border-radius:2px;
+}
+input[type=range]::-moz-range-thumb{
+  width:15px; height:15px; background:var(--cyan); border:1px solid var(--bg0);
+  cursor:pointer; border-radius:2px;
+}
+
+.ctrl-btns{ display:flex; gap:6px; margin-top:10px; }
+.ctrl-btn{
+  flex:1; font-family:var(--font); font-size:10px; letter-spacing:.08em;
+  border:1px solid var(--border); color:var(--dim); background:var(--bg3);
+  padding:8px 4px; cursor:pointer; text-transform:uppercase; transition:var(--tr);
+}
+.ctrl-btn:hover{ border-color:var(--green); color:var(--green); box-shadow:0 0 7px var(--green); }
+.ctrl-btn.active{ background:var(--green); color:#03080f; border-color:var(--green); font-weight:700; box-shadow:none; }
+
+/* Meters */
+.meter{ display:flex; justify-content:space-between; align-items:center;
+        padding:6px 0; border-bottom:1px solid var(--border); }
+.meter:last-child{ border-bottom:none; }
+.mlabel{ font-size:11px; color:var(--dim); letter-spacing:.04em; }
+.mval{ font-size:14px; color:var(--cyan); font-weight:700; }
+.mval.small{ font-size:12px; }
+.mval.state{ color:var(--yellow); font-size:12px; }
+
+/* Theory accordion */
+/* Teori pop-up */
+.modal-overlay{ position:fixed; inset:0; background:rgba(2,6,12,.72); backdrop-filter:blur(2px);
+  display:none; align-items:flex-start; justify-content:center; z-index:50; padding:40px 16px; overflow-y:auto; }
+.modal-overlay.open{ display:flex; }
+.modal{ background:var(--bg1); border:1px solid var(--border); max-width:680px; width:100%;
+  box-shadow:0 12px 40px rgba(0,0,0,.55); }
+[data-theme="light"] .modal{ box-shadow:0 12px 40px rgba(0,0,0,.2); }
+.modal-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:12px 15px; border-bottom:1px solid var(--border); }
+.modal-title{ font-size:11px; letter-spacing:.18em; color:var(--green); text-transform:uppercase; }
+.modal-close{ font-family:var(--font); font-size:15px; line-height:1; color:var(--dim);
+  background:none; border:1px solid var(--border); padding:4px 9px; cursor:pointer; transition:var(--tr); }
+.modal-close:hover{ border-color:var(--green); color:var(--green); }
+.explain-box{ padding:6px 16px 18px; }
+.explain-box p{ font-size:13px; color:var(--text); line-height:1.7; letter-spacing:.01em; margin:11px 0; }
+.explain-box .acc{ color:var(--cyan); font-weight:700; }
+.explain-box .acc-y{ color:var(--yellow); font-weight:700; }
+.explain-box b{ color:var(--green); }
+
+footer{ margin-top:16px; font-size:10px; color:var(--dim); letter-spacing:.05em; text-align:right; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="bolt-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+    </span>
+    <h1>Transient — når et kredsløb tændes og slukkes</h1>
+    <div class="head-btns">
+      <button class="btn-sm" id="theoryBtn" title="Åbn teori">
+        <svg viewBox="0 0 24 24"><path d="M4 3h12a2 2 0 0 1 2 2v16l-8-4-8 4V3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        Teori
+      </button>
+      <button class="btn-sm" id="copyBtn" title="Kopier hele kildekoden">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+        Kopier kode
+      </button>
+      <button class="btn-sm" id="themeBtn"><span id="themeIco"></span><span id="themeTxt">Lys tilstand</span></button>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <div class="left">
+    <!-- q(x) -->
+    <div class="cell-q">
+      <div class="box">
+        <div class="sec-title">Overfladeladning langs lederen&nbsp;&nbsp;q(x)</div>
+        <canvas id="graph" width="440" height="300"></canvas>
+        <div class="legend">
+          <span><span class="sw" style="background:#eaf6fa"></span> hvid kurve = overfladeladning q · <span style="color:var(--dim)">grå zone = modstand</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- kredsløb -->
+    <div class="cell-cir">
+      <div class="box">
+        <div class="sec-title">Kredsløbet</div>
+        <canvas id="circuit" width="440" height="300"></canvas>
+        <div class="legend">
+          <span><span class="sw sw-grad"></span> q: <span style="color:var(--neg)">neg</span>–lille–<span style="color:var(--pos)">pos</span> · <span class="dotleg"></span> elektroner (− → +)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- strømgraf (i det frigjorte felt) -->
+    <div class="cell-time">
+      <div class="box">
+        <div class="sec-title">Strømmen mens kredsløbet finder ro&nbsp;&nbsp;I(t)</div>
+        <canvas id="tgraph" width="900" height="150"></canvas>
+        <div class="legend thin">
+          <span><span class="sw" style="background:var(--yellow)"></span> strøm I(t)</span>
+          <span><span class="sw" style="background:transparent;border:none;border-bottom:2px dashed var(--green);height:2px"></span> stationær I = U/R</span>
+          <span>slowmotion — i virkeligheden varer forløbet ~µs</span>
+        </div>
+      </div>
+    </div>
+    </div><!-- /.left -->
+
+    <!-- kontroller + målere -->
+    <div class="cell-ctrl">
+      <div class="box">
+        <div class="sec-title">Kobling &amp; styring</div>
+        <div class="mode-row">
+          <button class="mode-btn active" data-mode="enkelt">Enkelt</button>
+          <button class="mode-btn" data-mode="serie">Serie</button>
+        </div>
+
+        <button class="power" id="powerBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.5 7a8 8 0 1 0 11 0"/></svg>
+          <span id="powerTxt">Tænd</span>
+        </button>
+
+        <div class="ctrl">
+          <div class="ctrl-head"><label>Batteri U</label><span class="ctrl-val" id="vU">6,0 V</span></div>
+          <input type="range" id="sU" min="2" max="12" step="0.5" value="6">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><label>Modstand R<sub>1</sub></label><span class="ctrl-val" id="vR1">8,0 Ω</span></div>
+          <input type="range" id="sR1" min="1" max="20" step="0.5" value="8">
+        </div>
+        <div class="ctrl" id="r2wrap" style="display:none;">
+          <div class="ctrl-head"><label>Modstand R<sub>2</sub></label><span class="ctrl-val" id="vR2">4,0 Ω</span></div>
+          <input type="range" id="sR2" min="1" max="20" step="0.5" value="4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><label>Ledningslængde</label><span class="ctrl-val" id="vL">1,4 ×</span></div>
+          <input type="range" id="sL" min="0.5" max="2.5" step="0.1" value="1.4">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><label>Dæmpning</label><span class="ctrl-val" id="vD">lav</span></div>
+          <input type="range" id="sD" min="0.25" max="3" step="0.05" value="0.55">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><label>Tempo</label><span class="ctrl-val" id="vSpd">Slow</span></div>
+          <div class="mode-row" id="tempoRow" style="margin-top:2px">
+            <button class="mode-btn" data-spd="normal">Normal</button>
+            <button class="mode-btn active" data-spd="slow">Slow</button>
+            <button class="mode-btn" data-spd="superslow">Super-slow</button>
+          </div>
+        </div>
+
+        <div class="ctrl-btns">
+          <button class="ctrl-btn active" id="playBtn">Afspil</button>
+          <button class="ctrl-btn" id="pauseBtn">Pause</button>
+          <button class="ctrl-btn" id="resetBtn">Nulstil</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="sec-title">Målere</div>
+        <div id="meters"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Teori som pop-up -->
+  <div class="modal-overlay" id="theoryModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Teori">
+      <div class="modal-head">
+        <span class="modal-title">Teori — når et kredsløb tændes og slukkes</span>
+        <button class="modal-close" id="theoryClose" title="Luk">✕</button>
+      </div>
+      <div class="explain-box" id="theory"></div>
+    </div>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   Transient-simulering — companion til overfladeladning.html (Fysik B)
+   Modellen er en ring (loop): batteri + ledninger + modstand. Naar der
+   taendes, loeber en forstyrrelse ud fra batteriet, kastes delvist tilbage
+   ved modstanden og skvulper frem og tilbage, indtil den daempes mod den
+   stationaere tilstand. Den underliggende boelgemodel bruger en lille
+   "traeghed" og et "lager" pr. led — begreber der bevidst holdes UDEN FOR
+   UI'et (over Fysik B). Eleven ser kun ladning og stroem.
+   I stationaer tilstand er billedet identisk med overfladeladning.html.
+   ===================================================================== */
+
+let isDark = true;
+function D(d,l){ return isDark ? d : l; }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function hex2rgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+function rgb(r,g,b){ return 'rgb('+(r|0)+','+(g|0)+','+(b|0)+')'; }
+function fmt(n,dec){ return n.toFixed(dec).replace('.',','); }
+
+/* farve fra q (divergerende: blaa=neg, blegt=lille, roed=pos) — som overfladeladning.html */
+const U_MAX = 12;
+const QREF  = 0.90 * U_MAX;     // FAST reference: maetning + kurvehoejde foelger U, autoskalerer ALDRIG
+function qToColor(q){
+  const t = Math.max(-1, Math.min(1, q / QREF));
+  const neutral = hex2rgb(D('#4d5965','#bcb0a0'));
+  const pos = hex2rgb(D('#ff4d6a','#d23b57'));
+  const neg = hex2rgb(D('#2e9bff','#2767a8'));
+  const target = t>=0 ? pos : neg;
+  const a = 0.92 * Math.pow(Math.abs(t),1.45);   // plateau svagt, spidser kraftige
+  return rgb(lerp(neutral[0],target[0],a), lerp(neutral[1],target[1],a), lerp(neutral[2],target[2],a));
+}
+
+/* ===== tilstand ===== */
+const S = { mode:'enkelt', U:6, R1:8, R2:4, lengthF:1.4, damp:0.55, speed:0.4, driftScale:0.4, on:false, playing:true };
+// sim = hvor hurtigt transienten afspilles; drift = elektronernes visuelle fart-skala
+const TEMPO = { normal:{sim:9.0,drift:1.0}, slow:{sim:0.4,drift:0.4}, superslow:{sim:0.08,drift:0.13} };
+
+/* ===== boelgemodel-konstanter (skjult for eleven) ===== */
+const M_INERTIA=1.0, M_STORE=1.0, DT=0.5, NSUB=9;
+const KR = 0.5;            // ohm -> intern enhed (saetter refleksion: stoerre R => mere skvulpen)
+const RES_CELLS = 6;       // led pr. modstand
+const CELL_PX = 14;        // basis kobber-cellelaengde (px); skaleres med ledningslaengde
+const DOT_SP = 18;         // fast prik-afstand i FYSISK buelaengde (jaevn, uafhaengig af celleantal)
+const TIME_SCALE = 0.012;  // sim-tid -> mikrosekunder (kalibreret saa transienten varer faa µs)
+
+/* geometri (komprimeret lodret, så canvas kan være lavere => bokse lige høje) */
+const Lx=68, Rx=350, Ty=40, By=262, pyT=138, pyB=170;
+
+/* ===== netvaerk ===== */
+let net=null, V=null, I=null;
+let driftPhase=0, stepBudget=0;
+let simTime=0, hist=[], settleClock=0, phase='off', tShown=0, env=0;
+
+function vertsFor(mode){
+  if(mode==='enkelt'){
+    return { verts:[ {x:Lx,y:pyT},{x:Lx,y:Ty},{x:Rx,y:Ty},{x:Rx,y:112},{x:Rx,y:196},{x:Rx,y:By},{x:Lx,y:By},{x:Lx,y:pyB} ],
+             comps:[ {i0:3,i1:4,label:'R₁',Rkey:'R1',cx:Rx,cy:154} ] };
+  }
+  return { verts:[ {x:Lx,y:pyT},{x:Lx,y:Ty},{x:Rx,y:Ty},
+                   {x:Rx,y:78},{x:Rx,y:136},
+                   {x:Rx,y:166},{x:Rx,y:224},
+                   {x:Rx,y:By},{x:Lx,y:By},{x:Lx,y:pyB} ],
+           comps:[ {i0:3,i1:4,label:'R₁',Rkey:'R1',cx:Rx,cy:107},
+                   {i0:5,i1:6,label:'R₂',Rkey:'R2',cx:Rx,cy:195} ] };
+}
+
+function buildNet(){
+  const {verts,comps}=vertsFor(S.mode);
+  const isComp=(i)=>{ for(const c of comps) if(c.i0===i&&c.i1===i+1) return c; return null; };
+
+  // saml led langs hovedstien; mange celler pr. segment (kobber skaleres med laengde)
+  const nodes=[{x:verts[0].x,y:verts[0].y}];
+  const branches=[];                 // {a,b,kind:'cu'|'res',group,R}
+  const resGroups=[];                // [{entry,exit,Rkey,label,cx,cy,branchIdx:[]}]
+  comps.forEach((c,gi)=>resGroups.push({Rkey:c.Rkey,label:c.label,cx:c.cx,cy:c.cy,branchIdx:[],entry:-1,exit:-1}));
+
+  for(let i=0;i<verts.length-1;i++){
+    const p0=verts[i], p1=verts[i+1];
+    const segLen=Math.hypot(p1.x-p0.x,p1.y-p0.y);
+    const c=isComp(i);
+    const gi = c ? comps.indexOf(c) : -1;
+    const nC = c ? RES_CELLS : Math.max(2, Math.round(segLen/CELL_PX*S.lengthF));
+    for(let k=1;k<=nC;k++){
+      const t=k/nC;
+      nodes.push({x:lerp(p0.x,p1.x,t),y:lerp(p0.y,p1.y,t)});
+      const a=nodes.length-2, b=nodes.length-1;
+      const br={a,b,kind:c?'res':'cu',group:gi,R:0};
+      branches.push(br);
+      if(c){ const g=resGroups[gi]; if(g.entry<0)g.entry=a; g.exit=b; g.branchIdx.push(branches.length-1); }
+    }
+  }
+  // batteri-led: sidste knude (-pol) -> knude 0 (+pol)
+  const last=nodes.length-1;
+  const batBranch=branches.length;
+  branches.push({a:last,b:0,kind:'bat',group:-1,R:0.12});
+
+  // arc-laengde pr. knude (px) langs hovedstien
+  const sNode=new Float64Array(nodes.length);
+  for(let n=1;n<nodes.length;n++) sNode[n]=sNode[n-1]+Math.hypot(nodes[n].x-nodes[n-1].x, nodes[n].y-nodes[n-1].y);
+  const Lext=sNode[last];
+
+  // modstande: resistor ~ R(ohm)*KR fordelt; kobber lille total (daempning); batteri lille
+  let nCu=0; for(const br of branches) if(br.kind==='cu') nCu++;
+  const RcuTotal=0.04+0.10*S.damp;
+  const RcuCell=(nCu>0)?RcuTotal/nCu:0;
+  for(const br of branches){
+    if(br.kind==='cu') br.R=RcuCell;
+    else if(br.kind==='res'){
+      const Rohm = (resGroups[br.group].Rkey==='R1')?S.R1:S.R2;
+      br.R = (Rohm*KR)/RES_CELLS;
+    }
+  }
+
+  // display-kalibrering
+  let Rsum=0; for(const br of branches) Rsum+=br.R;
+  const Rtot_ohm = (S.mode==='enkelt')? S.R1 : (S.R1+S.R2);
+  const kI = KR;                 // display I (A) = I_sim * KR  (=> stationaert U/Rtot)
+
+  net={nodes,branches,batBranch,resGroups,comps,verts,sNode,Lext,last,Rsum,Rtot_ohm,kI};
+  V=new Float64Array(nodes.length);
+  I=new Float64Array(branches.length);
+  stepBudget=0; simTime=0; hist=[]; settleClock=0; phase=S.on?'run':'off';
+}
+
+/* ===== fysik: semi-implicit leapfrog (ét numerisk delskridt; antallet pr. billede
+   styres af Tempo, så slow-mo kan vise optændingen langsomt — uden at ændre stabilitet) ===== */
+function stepOnce(){
+  const br=net.branches;
+  const emf = S.on ? S.U : 0;
+  for(let i=0;i<br.length;i++){
+    const b=br[i];
+    const e=(i===net.batBranch)?emf:0;
+    I[i]=(I[i]+DT/M_INERTIA*(V[b.a]-V[b.b]+e))/(1+DT*b.R/M_INERTIA);
+  }
+  const flow=new Float64Array(net.nodes.length);
+  for(let i=0;i<br.length;i++){ flow[br[i].b]+=I[i]; flow[br[i].a]-=I[i]; }
+  for(let n=0;n<net.nodes.length;n++) V[n]+=DT/M_STORE*flow[n];
+  simTime+=DT;
+}
+
+/* Sæt felterne DIREKTE til den stationære tilstand (uniform sløjfestrøm + potentialfald).
+   Bruges når man justerer en slider mens kredsløbet kører, så ændringen er kvasi-statisk
+   (strømmen følger glat U/R uden at udløse en ny ringende transient/ombytning). */
+function seedSteady(){
+  const emf = S.on ? S.U : 0;
+  const Iss = emf / net.Rsum;                 // samme strøm i hele sløjfen
+  for(let i=0;i<net.branches.length;i++) I[i]=Iss;
+  V[0]=0;
+  for(let i=0;i<net.batBranch;i++){ const b=net.branches[i]; V[b.b]=V[b.a]-Iss*b.R; }
+  let mean=0; for(let n=0;n<net.nodes.length;n++) mean+=V[n];
+  mean/=net.nodes.length;
+  for(let n=0;n<net.nodes.length;n++) V[n]-=mean;   // centrér (q = φ − U/2-konvention)
+  hist=[]; env=0; phase = S.on ? 'done' : 'off'; settleClock=99;
+}
+
+/* ===== q(s): glat potential + spidser (matcher overfladeladning.html) ===== */
+function smoothV(s){
+  const sN=net.sNode;
+  if(s<=0)return V[0];
+  if(s>=net.Lext)return V[net.last];
+  let lo=0,hi=net.last;
+  while(hi-lo>1){ const m=(lo+hi)>>1; if(sN[m]<=s)lo=m; else hi=m; }
+  const t=(s-sN[lo])/((sN[hi]-sN[lo])||1);
+  return lerp(V[lo],V[hi],t);
+}
+function getSpikes(){
+  const sp=[];
+  // poler (blødere, brede)
+  sp.push({s:0,         amp:0.44*V[0],          w:15});
+  sp.push({s:net.Lext,  amp:0.44*V[net.last],   w:15});
+  // grænselag ved modstand: spaendingsfald (smalle, kraftige)
+  for(const g of net.resGroups){
+    const drop=V[g.entry]-V[g.exit];
+    sp.push({s:net.sNode[g.entry], amp: 0.40*drop, w:8});
+    sp.push({s:net.sNode[g.exit],  amp:-0.40*drop, w:8});
+  }
+  return sp;
+}
+function qAt(s,spikes){
+  let q=smoothV(s);
+  for(const k of spikes){ const z=(s-k.s)/k.w; q+=k.amp*Math.exp(-z*z); }
+  return q;
+}
+
+/* ===== canvas-opsætning (fast logisk størrelse, dpr kun ved ændring) ===== */
+function setupCanvas(cv,LW,LH){
+  const dpr=window.devicePixelRatio||1;
+  const bw=Math.round(LW*dpr), bh=Math.round(LH*dpr);
+  if(cv.width!==bw)cv.width=bw;
+  if(cv.height!==bh)cv.height=bh;
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,LW,LH);
+  return {ctx,w:LW,h:LH};
+}
+function roundRect(ctx,x,y,w,h,r){
+  if(w<2*r)r=w/2; if(h<2*r)r=h/2;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.stroke();
+}
+
+/* ===== tegn kredsløb ===== */
+const cc=document.getElementById('circuit');
+function drawColoredWire(ctx,p0,p1,s0,s1,spikes){
+  const len=Math.hypot(p1.x-p0.x,p1.y-p0.y);
+  const steps=Math.max(2,Math.round(len/4));
+  ctx.lineWidth=8; ctx.lineCap='round';
+  for(let k=0;k<steps;k++){
+    const t0=k/steps,t1=(k+1)/steps;
+    ctx.strokeStyle=qToColor(qAt(lerp(s0,s1,(t0+t1)/2),spikes));
+    ctx.beginPath();
+    ctx.moveTo(lerp(p0.x,p1.x,t0),lerp(p0.y,p1.y,t0));
+    ctx.lineTo(lerp(p0.x,p1.x,t1),lerp(p0.y,p1.y,t1)); ctx.stroke();
+  }
+}
+function drawResistor(ctx,g,spikes){
+  const p0=net.nodes[g.entry], p1=net.nodes[g.exit];
+  const s0=net.sNode[g.entry], s1=net.sNode[g.exit];
+  // farvet bjælke (gradient efter q)
+  const grad=ctx.createLinearGradient(p0.x,p0.y,p1.x,p1.y);
+  for(let t=0;t<=1.0001;t+=0.2) grad.addColorStop(Math.min(1,t), qToColor(qAt(lerp(s0,s1,t),spikes)));
+  ctx.lineWidth=16; ctx.lineCap='butt'; ctx.strokeStyle=grad;
+  ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+  // ramme (dansk standard: rektangel)
+  const pad=11;
+  const x=Math.min(p0.x,p1.x)-pad, y=Math.min(p0.y,p1.y)-2;
+  const rw=Math.abs(p1.x-p0.x)+2*pad, rh=Math.abs(p1.y-p0.y)+4;
+  ctx.lineWidth=1.6; ctx.strokeStyle=D('#a8ccdd','#6b6353');
+  roundRect(ctx,x,y,Math.max(rw,2*pad),Math.max(rh,2*pad),4);
+  // label
+  ctx.font='bold 12px Courier New, monospace'; ctx.fillStyle=D('#eaf6fa','#111111');
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(g.label, g.cx+14, g.cy);
+}
+function drawBattery(ctx){
+  const top=net.nodes[0], bot=net.nodes[net.last];
+  const x=top.x, y0=top.y, y1=bot.y, mid=(y0+y1)/2;
+  ctx.strokeStyle=D('#bcd8e6','#5a5346'); ctx.lineWidth=2.4; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x-13,mid-5); ctx.lineTo(x+13,mid-5); ctx.stroke(); // lang plade (+)
+  ctx.beginPath(); ctx.moveTo(x-7,mid+5);  ctx.lineTo(x+7,mid+5);  ctx.stroke(); // kort plade (-)
+  ctx.lineWidth=2;
+  ctx.strokeStyle=qToColor(qAt(0,window._spk)); ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,mid-5); ctx.stroke();
+  ctx.strokeStyle=qToColor(qAt(net.Lext,window._spk)); ctx.beginPath(); ctx.moveTo(x,mid+5); ctx.lineTo(x,y1); ctx.stroke();
+}
+/* Position på den fysiske sti ved buelængde s (interpolerer knudernes px) */
+function posAt(s){
+  const sN=net.sNode, nd=net.nodes;
+  if(s<=0)return nd[0];
+  if(s>=net.Lext)return nd[net.last];
+  let lo=0,hi=net.last;
+  while(hi-lo>1){ const m=(lo+hi)>>1; if(sN[m]<=s)lo=m; else hi=m; }
+  const t=(s-sN[lo])/((sN[hi]-sN[lo])||1);
+  return {x:lerp(nd[lo].x,nd[hi].x,t), y:lerp(nd[lo].y,nd[hi].y,t)};
+}
+/* er buelængden s inde i en modstand? (så springes prikken over) */
+function inResistor(s){
+  for(const g of net.resGroups){ if(s>=net.sNode[g.entry]-3 && s<=net.sNode[g.exit]+3) return true; }
+  return false;
+}
+/* elektroner: ÉN stiv, jævnt fordelt kam i fysisk buelængde.
+   - afstand fast i px  => tæthed afhænger KUN af geometrien (ikke af celleantal/længde)
+   - hele kammen forskydes med én fælles fart ∝ strømmen => altid lige fordelt,
+     og hele strømmen surger ud og gynger tilbage under skvulpningen (reversering ses) */
+function drawDrift(ctx){
+  const dotCol=D('#34d6ff','#1763b0'); ctx.fillStyle=dotCol;
+  const sp=DOT_SP, L=net.Lext;
+  const off=((driftPhase%sp)+sp)%sp;
+  for(let s=off; s<L; s+=sp){
+    if(inResistor(s)) continue;
+    const p=posAt(s);
+    if(isDark){ ctx.shadowColor=dotCol; ctx.shadowBlur=6; }
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,7); ctx.fill();
+  }
+  ctx.shadowBlur=0;
+}
+function drawCircuit(){
+  const {ctx,w,h}=setupCanvas(cc,440,300);
+  ctx.fillStyle=D('#060e18','#f4eee3'); ctx.fillRect(0,0,w,h);
+  const spikes=getSpikes(); window._spk=spikes;
+  // ledninger
+  for(let i=0;i<net.batBranch;i++){
+    const b=net.branches[i]; if(b.kind==='res') continue;
+    drawColoredWire(ctx, net.nodes[b.a], net.nodes[b.b], net.sNode[b.a], net.sNode[b.b], spikes);
+  }
+  // modstande
+  for(const g of net.resGroups) drawResistor(ctx,g,spikes);
+  // batteri
+  drawBattery(ctx);
+  // drift-prikker
+  drawDrift(ctx);
+  // terminal-markører
+  ctx.font='bold 15px Courier New, monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle=D('#ff8da0','#d23b57'); ctx.fillText('+', net.nodes[0].x-14, net.nodes[0].y);
+  ctx.fillStyle=D('#7dc3ff','#2767a8'); ctx.fillText('–', net.nodes[net.last].x-14, net.nodes[net.last].y);
+}
+
+/* ===== tegn q(x)-graf ===== */
+const gc=document.getElementById('graph');
+function drawGraph(){
+  const {ctx,w,h}=setupCanvas(gc,440,300);
+  ctx.fillStyle=D('#060e18','#f4eee3'); ctx.fillRect(0,0,w,h);
+  const m={l:44,r:14,t:16,b:30}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+  const qmax=QREF*1.05;
+  const xOf=s=> m.l+(s/net.Lext)*pw;
+  const yOf=q=> m.t+ph/2-(q/qmax)*(ph/2);
+  const spikes=getSpikes();
+
+  ctx.strokeStyle=D('#1d3a52','#ddd2c0'); ctx.lineWidth=1;
+  for(let gx=0;gx<=4;gx++){ const x=m.l+gx/4*pw; ctx.beginPath(); ctx.moveTo(x,m.t); ctx.lineTo(x,m.t+ph); ctx.stroke(); }
+  // modstands-zone(r): neutral markering
+  ctx.fillStyle=D('rgba(170,190,205,.05)','rgba(70,65,55,.06)');
+  for(const g of net.resGroups){ const xa=xOf(net.sNode[g.entry]), xb=xOf(net.sNode[g.exit]); ctx.fillRect(xa,m.t,xb-xa,ph); }
+
+  ctx.strokeStyle=D('#5a7a90','#888888'); ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(m.l,m.t); ctx.lineTo(m.l,m.t+ph); ctx.stroke();
+  ctx.strokeStyle=D('#5a7a90','#999999'); ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(m.l,yOf(0)); ctx.lineTo(m.l+pw,yOf(0)); ctx.stroke(); ctx.setLineDash([]);
+
+  const N=240;
+  // positiv/negativ fyld
+  ctx.beginPath(); ctx.moveTo(xOf(0),yOf(0));
+  for(let i=0;i<=N;i++){ const s=i/N*net.Lext; ctx.lineTo(xOf(s),yOf(Math.max(0,qAt(s,spikes)))); }
+  ctx.lineTo(xOf(net.Lext),yOf(0)); ctx.closePath();
+  ctx.fillStyle=D('rgba(255,81,112,.22)','rgba(210,59,87,.20)'); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xOf(0),yOf(0));
+  for(let i=0;i<=N;i++){ const s=i/N*net.Lext; ctx.lineTo(xOf(s),yOf(Math.min(0,qAt(s,spikes)))); }
+  ctx.lineTo(xOf(net.Lext),yOf(0)); ctx.closePath();
+  ctx.fillStyle=D('rgba(58,160,255,.22)','rgba(39,103,168,.20)'); ctx.fill();
+  // kurve
+  ctx.lineWidth=2.2; ctx.strokeStyle=D('#eaf6fa','#111111'); ctx.beginPath();
+  for(let i=0;i<=N;i++){ const s=i/N*net.Lext, x=xOf(s), y=yOf(qAt(s,spikes)); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.stroke();
+
+  // labels
+  ctx.fillStyle=D('#bfe2ef','#222222'); ctx.font='11px Courier New, monospace';
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(const g of net.resGroups){ ctx.fillText(g.label,(xOf(net.sNode[g.entry])+xOf(net.sNode[g.exit]))/2, m.t+ph+6); }
+  ctx.textAlign='left'; ctx.fillStyle=D('#8ec8d8','#333333'); ctx.fillText('+ pol', m.l, m.t+ph+6);
+  ctx.textAlign='right'; ctx.fillText('– pol', m.l+pw, m.t+ph+6);
+  ctx.save(); ctx.translate(13,m.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle=D('#eaf6fa','#111111'); ctx.font='11px Courier New, monospace';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('q  (rel.)',0,0); ctx.restore();
+  ctx.fillStyle=D('#ff8da0','#d23b57'); ctx.textAlign='right'; ctx.textBaseline='top';
+  ctx.font='bold 12px Courier New, monospace'; ctx.fillText('+', m.l-6, m.t);
+  ctx.fillStyle=D('#7dc3ff','#2767a8'); ctx.textBaseline='bottom'; ctx.fillText('–', m.l-6, m.t+ph);
+}
+
+/* ===== tidsgraf I(t) ===== */
+const tg=document.getElementById('tgraph');
+function resISim(){
+  const g=net.resGroups[0]; const mid=g.branchIdx[Math.floor(g.branchIdx.length/2)];
+  return I[mid];
+}
+function drawTime(){
+  const {ctx,w,h}=setupCanvas(tg,900,150);
+  ctx.fillStyle=D('#060e18','#f4eee3'); ctx.fillRect(0,0,w,h);
+  const m={l:54,r:16,t:14,b:28}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+  const Ifin=S.U/net.Rtot_ohm;
+  let mx=Ifin, mn=0; for(const v of hist){ if(v>mx)mx=v; if(v<mn)mn=v; }
+  const hi=Math.max(2.2*Ifin, mx*1.08)+1e-6, lo=Math.min(0,mn*1.08);
+  const yOf=v=> m.t+(1-(v-lo)/(hi-lo))*ph;
+
+  ctx.strokeStyle=D('#1d3a52','#ddd2c0'); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(m.l,m.t); ctx.lineTo(m.l,m.t+ph); ctx.lineTo(m.l+pw,m.t+ph); ctx.stroke();
+  if(lo<0){ ctx.strokeStyle=D('#33506a','#cfc4b2'); ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(m.l,yOf(0)); ctx.lineTo(m.l+pw,yOf(0)); ctx.stroke(); ctx.setLineDash([]); }
+  // I_final
+  ctx.strokeStyle=D('#00ff9f','#1D9E75'); ctx.setLineDash([6,5]); ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(m.l,yOf(Ifin)); ctx.lineTo(m.l+pw,yOf(Ifin)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=D('#00ff9f','#1D9E75'); ctx.font='11px Courier New, monospace';
+  ctx.textAlign='left'; ctx.textBaseline='bottom';
+  ctx.fillText('I = U/R = '+fmt(Ifin,2)+' A', m.l+6, yOf(Ifin)-3);
+  // kurve
+  if(hist.length>1){
+    ctx.strokeStyle=D('#ffd93d','#c07800'); ctx.lineWidth=2; ctx.beginPath();
+    for(let i=0;i<hist.length;i++){ const x=m.l+(i/(600-1))*pw, y=yOf(hist[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+    ctx.stroke();
+  }
+  ctx.fillStyle=D('#8ec8d8','#333333'); ctx.font='11px Courier New, monospace';
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText('tid →', m.l+pw/2, m.t+ph+6);
+  ctx.save(); ctx.translate(15,m.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('strøm (A)',0,0); ctx.restore();
+}
+
+/* ===== drift: én fælles fart ∝ strøm gennem kredsløbet, skaleret med Tempo =====
+   alle elektroner bevæger sig ens => kammen forbliver jævn; strømmen surger og
+   gynger tilbage under skvulpningen (driftPhase kan kortvarigt skifte fortegn). */
+function moveDots(){
+  const Idisp = resISim()*net.kI;            // A (fortegnsbestemt)
+  let v = -Idisp * 3.3 * S.driftScale;       // fart ∝ strøm (∝ U) i ALLE tempoer
+  v = Math.max(-6, Math.min(6, v));          // loft = DOT_SP/3 => aldrig aliasing/ombytning
+  driftPhase += v;
+}
+function pushHistory(){ hist.push(resISim()*net.kI); if(hist.length>600)hist.shift(); }
+function updatePhase(){
+  if(!S.on){ phase='off'; settleClock=0; tShown=0; return; }
+  const Iss = (S.U/net.Rsum)*net.kI;   // FAKTISK stationær strøm (inkl. kobber/batteri)
+  const Idisp = resISim()*net.kI;
+  // envelope: glidende gennemsnit af |afvigelse fra slutværdi| — robust uanset svingefrekvens
+  env = env*0.96 + Math.abs(Idisp-Iss)*0.04;
+  phase = ((env < 0.03*Iss && simTime>30) || simTime>1400) ? 'done' : 'run';
+  if(phase!=='done') tShown = simTime*TIME_SCALE;   // tæller mens den svinger, fryser ved indsvingning
+}
+
+/* ===== målere ===== */
+function renderMeters(){
+  let html='';
+  const Idisp=Math.abs(resISim()*net.kI);
+  html+=meterRow('Strøm I', fmt(Idisp,2)+' A');
+  for(const g of net.resGroups){
+    const drop=Math.abs(V[g.entry]-V[g.exit]);
+    html+=meterRow('U over '+g.label, fmt(drop,2)+' V');
+  }
+  const stateTxt = phase==='off' ? 'Slukket' : (phase==='done' ? 'Stationær' : 'Skvulper…');
+  html+=meterRow('Tilstand', stateTxt, 'state');
+  const tTxt = S.on ? fmt(tShown,2)+' µs' + (phase==='done'?' (indsvinget)':'') : '0,00 µs';
+  html+=meterRow('Tid', tTxt);
+  document.getElementById('meters').innerHTML=html;
+}
+function meterRow(lab,val,cls){
+  return '<div class="meter"><span class="mlabel">'+lab+'</span><span class="mval '+(cls||'')+'">'+val+'</span></div>';
+}
+
+/* ===== teori ===== */
+function renderTheory(){
+  document.getElementById('theory').innerHTML =
+   '<p><b>Hvad betyder “transient”?</b> Ordet betyder <span class="acc">forbigående</span>. Det dækker det korte forløb fra du tænder, til strømmen har fundet sin konstante (stationære) værdi. Bagefter er der ikke længere nogen transient — kun den jævne strøm I = U/R.</p>'
+  +'<p>Når du trykker <b>Tænd</b>, skubber batteriet ladninger ud i ledningerne (dvs. skubber nogle elektroner ud fra minuspolen ud i ledningen, og trækker nogle elektroner fra ledningen ind i pluspolen). Dette medfører, at der opbygges <span class="acc">overfladeladning</span> langs lederen: <span style="color:var(--pos);font-weight:700">positiv</span> ud fra pluspolen, <span style="color:var(--neg);font-weight:700">negativ</span> ud fra minuspolen. Der etableres en meget svag gradient i overfladeladningen i ledningerne, der driver strømmen.</p>'
+  +'<p>Læg mærke til formen: farven er <b>svag (næsten neutral) langs kobberledningerne</b> — der er stort set intet spændingsfald her. Men ved <b>ind- og udgangen af modstanden</b> hober ladningen sig op i kraftige spidser (<span style="color:var(--pos)">+</span> ind, <span style="color:var(--neg)">−</span> ud), og hen over modstanden ligger hele spændingsfaldet. Der er også en <b>mindre spids ved hver pol</b>.</p>'
+  +'<p>Forstyrrelsen løber ikke roligt på plads. Den rammer modstanden, bliver <span class="acc-y">delvist kastet tilbage</span> og <b>skvulper frem og tilbage</b> mellem batteri og modstand, indtil den nødvendige overfladeladning er etableret ved modstanden for at drive stationær strøm igennem den. Det ses på strømgrafen: strømmen svinger forbi sin slutværdi og tilbage, før den dæmpes ud mod den stationære <span class="acc">I = U/R</span>. Sæt <b>Tempo</b> til Slow eller Super-slow for at se det tydeligt — på Normal er det næsten overstået med det samme, som i virkeligheden.</p>'
+  +'<p>Selve transienten udløses kun af <b>Tænd</b>. Når du justerer en slider (spænding, modstand, længde, dæmpning), tilpasser kredsløbet sig <i>glat</i> til det nye stationære billede — som at dreje langsomt på en knap — uden at sætte et nyt skvulp i gang. Vil du se transienten igen, så tryk <b>Nulstil</b> eller Sluk og Tænd.</p>'
+  +'<p>Prøv selv (husk at trykke Tænd bagefter): en <b>større modstand</b> kaster mere tilbage og giver flere skvulp; <b>lav dæmpning</b> lader skvulpet leve længe, <b>høj dæmpning</b> bringer den hurtigt til ro. <b>Ledningslængden</b> ændrer kun <i>hvor lang tid hvert skvulp tager</i> — en lang ledning giver en langsommere svingning (længere rundtur for forstyrrelsen), tydeligst i Super-slow. Den stationære strøm og farverne er upåvirkede af længden.</p>'
+  +'<p>Prikkerne symboliserer <b>elektroner</b>; de driver fra minus mod plus — modsat den konventionelle strømretning, og altid lige fordelt. Farten følger strømstyrken. Lige efter Tænd kan du se hele strømmen gynge frem og tilbage: det <i>er</i> skvulpet. Hele forløbet varer i virkeligheden kun få mikrosekunder.</p>';
+}
+
+/* ===== loop ===== */
+function frame(){
+  if(S.playing){
+    // antal numeriske delskridt pr. billede styres af Tempo (slow-mo: under ét pr. billede)
+    stepBudget += S.speed * NSUB;
+    let guard=0;
+    while(stepBudget >= 1 && guard < 400){ stepOnce(); stepBudget -= 1; guard++; }
+    pushHistory(); moveDots(); updatePhase();
+  }
+  drawCircuit(); drawGraph(); drawTime(); renderMeters();
+  requestAnimationFrame(frame);
+}
+
+/* ===== hændelser ===== */
+// kobling (Enkelt/Serie) — kun knapper med data-mode
+document.querySelectorAll('.mode-btn[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.mode-btn[data-mode]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); S.mode=b.dataset.mode;
+  document.getElementById('r2wrap').style.display=(S.mode==='enkelt')?'none':'block';
+  buildNet(); if(S.on) seedSteady();
+}));
+// tempo (Normal/Slow/Super-slow) — kun knapper med data-spd
+document.querySelectorAll('.mode-btn[data-spd]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.mode-btn[data-spd]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); const t=TEMPO[b.dataset.spd]; S.speed=t.sim; S.driftScale=t.drift;
+  document.getElementById('vSpd').textContent = b.textContent;
+}));
+
+const sU=document.getElementById('sU'),sR1=document.getElementById('sR1'),sR2=document.getElementById('sR2'),
+      sL=document.getElementById('sL'),sD=document.getElementById('sD');
+// slider-ændringer er KVASI-STATISKE: sæt nyt stationært billede glat (ingen ringende transient)
+function quasiStatic(){ buildNet(); if(S.on) seedSteady(); }
+sU.addEventListener('input',()=>{ S.U=+sU.value; document.getElementById('vU').textContent=fmt(S.U,1)+' V'; if(S.on) seedSteady(); });
+sR1.addEventListener('input',()=>{ S.R1=+sR1.value; document.getElementById('vR1').textContent=fmt(S.R1,1)+' Ω'; quasiStatic(); });
+sR2.addEventListener('input',()=>{ S.R2=+sR2.value; document.getElementById('vR2').textContent=fmt(S.R2,1)+' Ω'; quasiStatic(); });
+sL.addEventListener('input',()=>{ S.lengthF=+sL.value; document.getElementById('vL').textContent=fmt(S.lengthF,1)+' ×'; quasiStatic(); });
+sD.addEventListener('input',()=>{ S.damp=+sD.value;
+  document.getElementById('vD').textContent=S.damp<0.8?'lav':(S.damp<1.7?'middel':'høj'); quasiStatic(); });
+
+const powerBtn=document.getElementById('powerBtn'), powerTxt=document.getElementById('powerTxt');
+powerBtn.addEventListener('click',()=>{
+  S.on=!S.on; powerBtn.classList.toggle('active',S.on); powerTxt.textContent=S.on?'Sluk':'Tænd';
+  // Tänd: nulstil uret og start transienten fra nul; Sluk: lad den dø ud naturligt
+  if(S.on){ simTime=0; tShown=0; env=(S.U/net.Rsum)*net.kI; }
+  phase=S.on?'run':'off'; settleClock=0;
+});
+document.getElementById('playBtn').addEventListener('click',function(){
+  S.playing=true; this.classList.add('active'); document.getElementById('pauseBtn').classList.remove('active');
+});
+document.getElementById('pauseBtn').addEventListener('click',function(){
+  S.playing=false; this.classList.add('active'); document.getElementById('playBtn').classList.remove('active');
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  S.on=false; powerBtn.classList.remove('active'); powerTxt.textContent='Tænd';
+  buildNet(); phase='off';
+});
+
+/* tema */
+const ICON_SUN='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg>';
+const ICON_MOON='<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+function setThemeButton(){
+  document.getElementById('themeIco').innerHTML=isDark?ICON_SUN:ICON_MOON;
+  document.getElementById('themeTxt').textContent=isDark?'Lys tilstand':'Mørk tilstand';
+}
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  isDark=!isDark; document.documentElement.setAttribute('data-theme',isDark?'dark':'light'); setThemeButton();
+});
+
+/* Teori pop-up */
+const theoryModal=document.getElementById('theoryModal');
+function openTheory(){ theoryModal.classList.add('open'); theoryModal.setAttribute('aria-hidden','false'); }
+function closeTheory(){ theoryModal.classList.remove('open'); theoryModal.setAttribute('aria-hidden','true'); }
+document.getElementById('theoryBtn').addEventListener('click',openTheory);
+document.getElementById('theoryClose').addEventListener('click',closeTheory);
+theoryModal.addEventListener('click',e=>{ if(e.target===theoryModal) closeTheory(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeTheory(); });
+
+/* kopier kode — synkron outerHTML-fangst */
+document.getElementById('copyBtn').addEventListener('click',function(){
+  const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  const btn=this;
+  const restore=()=>{ btn.lastChild.textContent=' Kopier kode'; };
+  navigator.clipboard.writeText(html).then(()=>{ btn.lastChild.textContent=' Kopieret!'; setTimeout(restore,1400); })
+    .catch(()=>{ const ta=document.createElement('textarea'); ta.value=html; document.body.appendChild(ta); ta.select();
+      try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); btn.lastChild.textContent=' Kopieret!'; setTimeout(restore,1400); });
+});
+
+/* fodtekst */
+(function(){
+  const mnd=['januar','februar','marts','april','maj','juni','juli','august','september','oktober','november','december'];
+  const d=new Date(document.lastModified);
+  document.getElementById('foot').textContent='Companion til overfladeladning.html · '+d.getDate()+'. '+mnd[d.getMonth()]+' '+d.getFullYear();
+})();
+
+/* start */
+document.documentElement.setAttribute('data-theme','dark');
+setThemeButton(); renderTheory(); buildNet();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

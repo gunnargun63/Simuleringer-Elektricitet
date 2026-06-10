@@ -701,7 +701,9 @@ function drawCircuit(s){
       flowSegs.push({x1:r[0],y1:r[1],x2:r[2],y2:r[3],comp:r[5],t0:T,tt:tt}); T+=tt;
     }
     flowSegs.T=T; flowSegs.N = 46;
-    flowPhase=(flowPhase+1)%T;
+    // Elektroner løber − → + i det ydre kredsløb (modsat den konventionelle strøm).
+    // Segmenterne er defineret med uret, så fasen løber BAGLÆNS = mod uret.
+    flowPhase=(flowPhase-1+T)%T;
     drawFlowDots(flowSegs, false);            // pass 1: alle prikker (dækkes af symboler)
   }
 

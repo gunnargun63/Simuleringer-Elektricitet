@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hvilken pære lyser kraftigst?</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  --bg:#000000;
+  --fg:#EEEEEE;
+  --dim:#CFCFCF;
+  --border:#6A6A6A;
+  --blue:#58C4DD;
+  --yellow:#F4D345;
+  --green:#83C167;
+  --red:#FC6255;
+  --teal:#5CD0B3;
+  --serif:"KaTeX_Main","Latin Modern Roman","CMU Serif",Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--serif)}
+body{padding:18px 16px 48px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-weight:normal;font-size:2.1rem;margin:0 0 6px;letter-spacing:.01em}
+.sub{color:var(--dim);font-size:1.12rem;margin:0 0 10px;line-height:1.45}
+canvas{display:block;width:100%;background:var(--bg)}
+.row{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;margin:10px 0}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.label{color:var(--dim);font-size:1.08rem}
+.q{font-size:1.18rem}
+i.sym{font-family:"KaTeX_Math","KaTeX_Main",Georgia,serif;font-style:italic}
+button{
+  font-family:var(--serif);font-size:1.05rem;font-weight:bold;color:var(--fg);
+  background:transparent;border:1.5px solid var(--border);border-radius:6px;
+  padding:5px 13px;cursor:pointer;transition:border-color .15s,background .15s
+}
+button:hover:not(:disabled){border-color:var(--fg)}
+button:disabled{opacity:.38;cursor:default}
+button.pred.sel{background:#EEEEEE;border-color:#EEEEEE;color:#000;opacity:1}
+button.primary{border-color:var(--green)}
+button.tog.on{background:#EEEEEE;color:#000;border-color:#EEEEEE}
+select{
+  font-family:var(--serif);font-size:1.05rem;color:var(--fg);background:#111;
+  border:1.5px solid var(--border);border-radius:6px;padding:5px 8px
+}
+/* neutral skyder, der også har synligt spor i Safari */
+input[type=range]{-webkit-appearance:none;appearance:none;width:220px;height:22px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:#5a5a5a;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;background:#EEEEEE;border:none;margin-top:-7px}
+input[type=range]::-moz-range-track{height:4px;background:#5a5a5a;border-radius:2px}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#EEEEEE;border:none}
+.val{min-width:3.6em;font-size:1.08rem}
+.cA{color:var(--blue)} .cB{color:var(--yellow)} .cS{color:var(--teal)}
+.hint{color:var(--dim);font-style:italic}
+.sep{height:1px;background:#2a2a2a;margin:18px 0 10px}
+
+/* kredsløbsbånd */
+.band{border-top:1px solid #2a2a2a;padding:10px 0 4px;transition:opacity .25s}
+.band.locked .bbody, .band.locked .bq{opacity:.35}
+.bhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+.bname{display:flex;align-items:center;gap:10px;font-size:1.35rem;min-width:12.5em}
+.circ{display:inline-grid;place-items:center;width:32px;height:32px;border:2px solid currentColor;border-radius:50%;font-size:1.15rem}
+.bq{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.bbody{display:flex;align-items:center;gap:10px 22px;margin-top:4px}
+.bbody canvas{flex:1 1 auto;min-width:0}
+table.data{flex:0 0 340px;width:340px;table-layout:fixed;border-collapse:collapse;font-size:1.08rem}
+table.data col.c0{width:78px}
+table.data th, table.data td{padding:4px 10px;text-align:right;white-space:nowrap}
+table.data th{font-weight:normal;color:var(--dim);border-bottom:1px solid #3a3a3a}
+table.data td:first-child, table.data th:first-child{text-align:left;color:var(--dim)}
+table.data tr.tot td{border-top:1px solid #3a3a3a}
+.bres{min-height:1.5em;font-size:1.17rem;line-height:1.5;margin:4px 0 6px}
+.summary{min-height:1.4em;font-size:1.12rem;color:var(--dim);margin:8px 0 4px}
+@media (max-width:760px){
+  .bbody{flex-direction:column;align-items:stretch}
+  table.data{align-self:center;flex:0 0 auto;width:100%;max-width:360px;font-size:1rem}
+  table.data col.c0{width:66px}
+  .bname{min-width:0}
+}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:10}
+.modal.open{display:flex}
+.panel{position:relative;background:#0b0b0b;border:1.5px solid var(--border);border-radius:10px;max-width:780px;width:100%;padding:26px 30px 22px}
+.panel h2{font-weight:normal;font-size:1.7rem;margin:0 0 14px;padding-right:130px}
+.panel h3{font-weight:normal;font-size:1.35rem;color:var(--blue);margin:22px 0 10px}
+.panel p{font-size:1.15rem;line-height:1.6;margin:0 0 14px}
+.panel .katex-display{overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.panel .top{position:absolute;top:16px;right:16px;display:flex;gap:8px}
+.panel .top button{font-size:.95rem;padding:4px 10px}
+@media (max-width:600px){
+  .panel{padding:22px 16px 18px}
+  .panel h2{padding-right:0;margin-top:34px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hvilken pære lyser kraftigst?</h1>
+  <p class="sub">To pærer med resistanserne <i class="sym">R</i><sub>1</sub> = 4 Ω og <i class="sym">R</i><sub>2</sub> = 8 Ω sluttes til en spændingskilde på 12 V, først i parallel og derefter i serie.</p>
+
+  <section class="band" id="bandA">
+    <div class="bhead">
+      <span class="bname cA"><span class="circ">A</span>Parallelkobling</span>
+      <span class="bq">
+        <span class="q">Hvilken pære lyser kraftigst?</span>
+        <span class="group">
+          <button class="pred" data-p="1">Pære 1</button>
+          <button class="pred" data-p="2">Pære 2</button>
+          <button class="pred" data-p="S">Lige kraftigt</button>
+        </span>
+        <button class="primary start" disabled>▶ Tænd</button>
+        <span class="hint"></span>
+      </span>
+    </div>
+    <div class="bbody">
+      <canvas></canvas>
+      <table class="data"></table>
+    </div>
+    <div class="bres"></div>
+  </section>
+
+  <section class="band locked" id="bandB">
+    <div class="bhead">
+      <span class="bname cB"><span class="circ">B</span>Seriekobling</span>
+      <span class="bq">
+        <span class="q">Hvilken pære lyser kraftigst?</span>
+        <span class="group">
+          <button class="pred" data-p="1">Pære 1</button>
+          <button class="pred" data-p="2">Pære 2</button>
+          <button class="pred" data-p="S">Lige kraftigt</button>
+        </span>
+        <button class="primary start" disabled>▶ Tænd</button>
+        <span class="hint"></span>
+      </span>
+    </div>
+    <div class="bbody">
+      <canvas></canvas>
+      <table class="data"></table>
+    </div>
+    <div class="bres"></div>
+  </section>
+
+  <div id="summary" class="summary"></div>
+
+  <div class="row">
+    <button id="reset">↺ Nulstil</button>
+    <span class="group"><span class="label">Tempo</span>
+      <select id="tempo">
+        <option value="2">2×</option>
+        <option value="1" selected>1×</option>
+        <option value="0.5">½×</option>
+        <option value="0.25">¼×</option>
+      </select>
+    </span>
+    <span class="group"><span class="label">Pære 2's resistans <i class="sym">R</i><sub>2</sub></span>
+      <input type="range" id="r2" min="2" max="16" step="1" value="8">
+      <span class="val" id="r2val">8 Ω</span>
+    </span>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="row">
+    <span class="group"><span class="label">Graf</span>
+      <button class="tog on" data-g="P">Effekt <i class="sym">P</i></button>
+      <button class="tog" data-g="U">Spændingsfald <i class="sym">U</i></button>
+      <button class="tog" data-g="I">Strømstyrke <i class="sym">I</i></button>
+    </span>
+    <button id="why" disabled>Hvorfor?</button>
+  </div>
+  <canvas id="graf"></canvas>
+</div>
+
+<div class="modal" id="modal">
+  <div class="panel">
+    <div class="top"><button id="copy">Kopiér tekst</button><button id="close">✕</button></div>
+    <h2>Hvad afgør, hvilken pære lyser kraftigst?</h2>
+    <div id="whyBody"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ================= PHYSICS-START =================
+// Idealt kredsløb: kilden holder U = 12 V uanset strømstyrken, ledningerne har
+// ingen resistans, og pærernes resistans regnes konstant.
+const U0 = 12;        // kildens spænding (V)
+const R1 = 4;         // pære 1 (ohm)
+const PMAX = 72;      // største effekt på skyderen: U0^2 / 2 ohm
+
+function solve(R1, R2, U){
+  // Parallel: samme spændingsfald U over begge pærer.
+  const pI1 = U/R1, pI2 = U/R2;
+  const par = {
+    R: R1*R2/(R1 + R2),
+    U1: U, U2: U, I1: pI1, I2: pI2, I: pI1 + pI2,
+    P1: U*pI1, P2: U*pI2, P: U*(pI1 + pI2)
+  };
+  // Serie: samme strømstyrke I gennem begge pærer.
+  const Rs = R1 + R2, I = U/Rs;
+  const ser = {
+    R: Rs,
+    U1: R1*I, U2: R2*I, I1: I, I2: I, I: I,
+    P1: R1*I*I, P2: R2*I*I, P: U*I
+  };
+  return { par, ser };
+}
+// ================= PHYSICS-END =================
+
+// ---------- konstanter ----------
+const COL = { A:"#58C4DD", B:"#F4D345", S:"#5CD0B3", fg:"#EEEEEE", dim:"#CFCFCF", green:"#83C167", red:"#FC6255" };
+const SERIF = '"KaTeX_Main","Latin Modern Roman","CMU Serif",Georgia,serif';
+const MATH  = '"KaTeX_Math","KaTeX_Main",Georgia,serif';
+
+const T_SWITCH = 0.25;   // afbryderen lukkes (s)
+const T_GLOW = 0.35;     // pærerne varmes op (visuelt)
+const T_VERDICT = 1.1;   // resultatet vises
+const KDOT = 24;         // prikkernes fart: px/s pr. ampere ved tempo 1
+const DOT_GAP = 18;      // afstand mellem prikker (px), ens i alle ledninger
+
+const fmt = (v, n) => v.toFixed(n).replace(".", ",").replace(/^-(0,0*)$/, "$1");
+const smooth = u => { u = Math.max(0, Math.min(1, u)); return (1 - Math.cos(Math.PI*u))/2; };
+
+// ---------- tilstand ----------
+let R2 = 8, tempo = 1, graphMode = "P";
+let sol = solve(R1, R2, U0);
+
+function makeBand(key){
+  const sec = document.getElementById("band" + key);
+  const cv = sec.querySelector("canvas");
+  return {
+    key, sec, cv, ctx: cv.getContext("2d"), W: 600, H: 250,
+    table: sec.querySelector("table.data"), res: sec.querySelector(".bres"),
+    preds: [...sec.querySelectorAll("button.pred")], start: sec.querySelector("button.start"),
+    hint: sec.querySelector(".hint"),
+    pred: null, on: false, t: 0, done: false, phase: {}, tableKey: ""
+  };
+}
+const bands = { A: makeBand("A"), B: makeBand("B") };
+const stOf = b => b.key === "A" ? sol.par : sol.ser;
+const locked = b => b.key === "B" && !bands.A.done;
+const glowRamp = b => b.on ? smooth((b.t - T_SWITCH)/T_GLOW) : 0;
+const currentOn = b => b.on && b.t >= T_SWITCH;
+
+const gv = document.getElementById("graf"), gtx = gv.getContext("2d");
+const btnWhy = document.getElementById("why"), summaryEl = document.getElementById("summary");
+let GW = 800, GH = 280;
+
+// ---------- layout ----------
+function layout(){
+  const dpr = window.devicePixelRatio || 1;
+  for (const b of Object.values(bands)){
+    b.W = b.cv.clientWidth || 600;
+    b.H = b.W < 480 ? 220 : 250;
+    b.cv.style.height = b.H + "px";
+    b.cv.width = Math.round(b.W*dpr); b.cv.height = Math.round(b.H*dpr);
+    b.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  GW = gv.clientWidth || 800;
+  GH = Math.max(240, Math.min(320, GW*0.32));
+  gv.style.height = GH + "px";
+  gv.width = Math.round(GW*dpr); gv.height = Math.round(GH*dpr);
+  gtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// Samme rektangel i begge kredsløb.
+// A (som Figur 12): pære 1 på en gren i midten, pære 2 på højre side.
+// B (som Figur 13): pære 1 på den øverste ledning, pære 2 på den nederste.
+function geom(b){
+  const narrow = b.W < 480;
+  const cx0 = narrow ? 82 : 112;
+  const cx1 = Math.min(b.W - (narrow ? 58 : 100), cx0 + 560);
+  const yt = 0.2*b.H, yb = b.H - 0.2*b.H, ym = (yt + yb)/2;
+  const xm = cx0 + 0.55*(cx1 - cx0);
+  const xs = cx0 + 0.42*(xm - cx0);
+  const rb = narrow ? 13 : 15;
+  const rmax = 0.22*b.H;
+  const fs = narrow ? 14 : 16;
+  const g = { narrow, cx0, cx1, yt, yb, ym, xm, xs, rb, rmax, fs, batY: ym };
+  if (b.key === "A"){ g.bulb1 = [xm, ym]; g.bulb2 = [cx1, ym]; }
+  else { g.bulb1 = [xm, yt]; g.bulb2 = [xm, yb]; }
+  return g;
+}
+
+function paths(b, g){
+  if (b.key === "A") return {
+    loop: [[g.xm, g.yb], [g.cx0, g.yb], [g.cx0, g.yt], [g.xm, g.yt]],
+    b1: [[g.xm, g.yt], [g.xm, g.yb]],
+    b2: [[g.xm, g.yt], [g.cx1, g.yt], [g.cx1, g.yb], [g.xm, g.yb]]
+  };
+  return { loop: [[g.cx0, g.yb], [g.cx0, g.yt], [g.cx1, g.yt], [g.cx1, g.yb], [g.cx0, g.yb]] };
+}
+function pathCurrent(b, k){
+  const st = stOf(b);
+  return k === "b1" ? st.I1 : k === "b2" ? st.I2 : st.I;
+}
+
+// ---------- tegnehjælp ----------
+// parts: [[tekst, erSymbol, erSænket], ...]
+function rich(c, parts, x, y, align, size, color, outline){
+  const fontOf = p => (p[1] ? `italic ${size}px ${MATH}` : `${p[2] ? Math.round(size*0.72) : size}px ${SERIF}`);
+  let w = 0;
+  for (const p of parts){ c.font = fontOf(p); w += c.measureText(p[0]).width; }
+  let cx = align === "right" ? x - w : align === "center" ? x - w/2 : x;
+  c.textBaseline = "alphabetic"; c.textAlign = "left";
+  for (const p of parts){
+    c.font = fontOf(p);
+    const yy = p[2] ? y + size*0.22 : y;
+    if (outline){ c.lineWidth = 4; c.strokeStyle = "#000"; c.lineJoin = "round"; c.strokeText(p[0], cx, yy); }
+    c.fillStyle = color; c.fillText(p[0], cx, yy);
+    cx += c.measureText(p[0]).width;
+  }
+  return w;
+}
+function polyLen(pts){ let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); return L; }
+function polyAt(pts, s){
+  for (let i = 1; i < pts.length; i++){
+    const l = Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]);
+    if (s <= l){ const f = s/l; return [pts[i-1][0] + f*(pts[i][0]-pts[i-1][0]), pts[i-1][1] + f*(pts[i][1]-pts[i-1][1])]; }
+    s -= l;
+  }
+  return pts[pts.length-1];
+}
+function drawDots(c, pts, ph){
+  const L = polyLen(pts);
+  c.fillStyle = COL.green;
+  let s = ((ph % DOT_GAP) + DOT_GAP) % DOT_GAP;
+  for (; s < L; s += DOT_GAP){
+    const [x, y] = polyAt(pts, s);
+    c.beginPath(); c.arc(x, y, 3.2, 0, 2*Math.PI); c.fill();
+  }
+}
+function wire(c, pts){
+  c.strokeStyle = COL.fg; c.lineWidth = 2.2; c.lineJoin = "round"; c.lineCap = "round";
+  c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke();
+}
+function drawBattery(c, g){
+  const x = g.cx0, y = g.batY;
+  c.fillStyle = "#000"; c.fillRect(x - 20, y - 9, 40, 18);
+  c.strokeStyle = COL.fg; c.lineCap = "butt";
+  c.lineWidth = 2.2; c.beginPath(); c.moveTo(x - 16, y - 5); c.lineTo(x + 16, y - 5); c.stroke();
+  c.lineWidth = 5; c.beginPath(); c.moveTo(x - 8, y + 5); c.lineTo(x + 8, y + 5); c.stroke();
+  c.lineCap = "round";
+  c.fillStyle = COL.fg; c.font = `${g.fs}px ${SERIF}`; c.textAlign = "left"; c.textBaseline = "middle";
+  c.fillText("+", x + 12, y - 15);
+  c.fillText("−", x + 12, y + 17);
+  rich(c, [["U", true], [` = ${U0} V`, false]], x - (g.narrow ? 16 : 24), y + g.fs*0.35, "right", g.fs + 1, COL.fg);
+}
+function drawSwitch(c, g, closedFrac){
+  const x = g.xs, y = g.yt, h = 14;
+  c.fillStyle = "#000"; c.fillRect(x - h, y - 5, 2*h, 10);
+  c.strokeStyle = COL.fg; c.lineWidth = 2.2;
+  const ang = -0.55*(1 - closedFrac);
+  c.beginPath(); c.moveTo(x - h, y); c.lineTo(x - h + 2*h*Math.cos(ang), y + 2*h*Math.sin(ang)); c.stroke();
+  c.fillStyle = "#000";
+  for (const px of [x - h, x + h]){ c.beginPath(); c.arc(px, y, 3.2, 0, 2*Math.PI); c.fill(); c.stroke(); }
+}
+
+// Lysets farve: lille effekt gløder orange, stor effekt varmt hvidt.
+const hex = h => [1,3,5].map(i => parseInt(h.substr(i, 2), 16));
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v)*t));
+const LOW = hex("#FF8C3A"), HIGH = hex("#FFF4D2"), DARK = hex("#101010");
+function lightCol(P){ return mix(LOW, HIGH, Math.pow(Math.min(1, P/36), 0.5)); }
+function brightness(P){ return Math.pow(Math.min(1, P/24), 0.5); }
+
+function drawGlow(c, g, x, y, P, ramp){
+  if (ramp <= 0 || P <= 0) return;
+  const r = 1.1*g.rb + g.rmax*Math.pow(P/PMAX, 0.45);
+  const a = (0.4 + 0.6*brightness(P))*ramp;
+  const [R, G, B] = lightCol(P);
+  const gr = c.createRadialGradient(x, y, 0, x, y, r*1.4);
+  gr.addColorStop(0, `rgba(${R},${G},${B},${a})`);
+  gr.addColorStop(0.45, `rgba(${R},${G},${B},${a*0.55})`);
+  gr.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.save(); c.globalCompositeOperation = "lighter";
+  c.fillStyle = gr; c.beginPath(); c.arc(x, y, r*1.4, 0, 2*Math.PI); c.fill();
+  c.restore();
+}
+function drawBulb(c, g, x, y, P, ramp, idx){
+  const b = brightness(P)*ramp;
+  c.fillStyle = "rgb(" + mix(DARK, lightCol(P), b).join(",") + ")";
+  c.strokeStyle = COL.fg; c.lineWidth = 2.2;
+  c.beginPath(); c.arc(x, y, g.rb, 0, 2*Math.PI); c.fill(); c.stroke();
+  const k = g.rb*0.7071;
+  c.strokeStyle = b > 0.5 ? "#6B3A00" : "#CFCFCF";
+  c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(x - k, y - k); c.lineTo(x + k, y + k); c.moveTo(x + k, y - k); c.lineTo(x - k, y + k); c.stroke();
+  rich(c, [[String(idx), false]], x + g.rb + 5, y - g.rb + 2, "left", g.fs + 2, COL.fg, true);
+}
+
+function drawBand(b){
+  const c = b.ctx, g = geom(b), st = stOf(b);
+  const ramp = glowRamp(b), closed = b.on ? smooth(b.t/T_SWITCH) : 0;
+  c.clearRect(0, 0, b.W, b.H);
+  c.save();
+
+  const P = paths(b, g);
+  if (b.key === "A"){
+    wire(c, [[g.cx0, g.yt], [g.cx1, g.yt], [g.cx1, g.yb], [g.cx0, g.yb], [g.cx0, g.yt]]);
+    wire(c, [[g.xm, g.yt], [g.xm, g.yb]]);
+    c.fillStyle = COL.fg;
+    for (const [x, y] of [[g.xm, g.yt], [g.xm, g.yb]]){ c.beginPath(); c.arc(x, y, 4, 0, 2*Math.PI); c.fill(); }
+  } else {
+    wire(c, P.loop);
+  }
+  if (currentOn(b)) for (const k in P) drawDots(c, P[k], b.phase[k] || 0);
+  drawBattery(c, g);
+  drawSwitch(c, g, closed);
+  drawGlow(c, g, g.bulb1[0], g.bulb1[1], st.P1, ramp);
+  drawGlow(c, g, g.bulb2[0], g.bulb2[1], st.P2, ramp);
+  drawBulb(c, g, g.bulb1[0], g.bulb1[1], st.P1, ramp, 1);
+  drawBulb(c, g, g.bulb2[0], g.bulb2[1], st.P2, ramp, 2);
+  c.restore();
+}
+
+// ---------- tabel ----------
+const TH = `<colgroup><col class="c0"><col><col><col><col></colgroup><tr><th></th><th><i class="sym">R</i></th><th><i class="sym">U</i></th><th><i class="sym">I</i></th><th><i class="sym">P</i></th></tr>`;
+function updateTable(b){
+  const st = stOf(b), live = currentOn(b);
+  const key = [live, R2].join("|");
+  if (key === b.tableKey) return;
+  b.tableKey = key;
+  const dash = "–";
+  const v = (x, n, u) => live ? `${fmt(x, n)} ${u}` : dash;
+  const col = b.key === "A" ? "cA" : "cB";
+  b.table.innerHTML = TH +
+    `<tr><td>Pære 1</td><td>${R1} Ω</td><td>${v(st.U1, 1, "V")}</td><td>${v(st.I1, 2, "A")}</td><td>${v(st.P1, 1, "W")}</td></tr>` +
+    `<tr><td>Pære 2</td><td>${R2} Ω</td><td>${v(st.U2, 1, "V")}</td><td>${v(st.I2, 2, "A")}</td><td>${v(st.P2, 1, "W")}</td></tr>` +
+    `<tr class="tot ${col}"><td class="${col}">I alt</td><td>${v(st.R, Number.isInteger(st.R) ? 0 : 2, "Ω")}</td><td>${v(U0, 1, "V")}</td><td>${v(st.I, 2, "A")}</td><td>${v(st.P, 1, "W")}</td></tr>`;
+}
+
+// ---------- graf ----------
+const AXES = {
+  P: { max: 80, step: 10, sym: "P", unit: "W", dec: 1 },
+  U: { max: 12, step: 2,  sym: "U", unit: "V", dec: 1 },
+  I: { max: 6,  step: 1,  sym: "I", unit: "A", dec: 2 }
+};
+function drawGraph(){
+  const c = gtx, Wg = GW, Hg = GH;
+  const narrow = Wg < 560;
+  const mL = narrow ? 48 : 66, mR = 14, mT = 40, mB = 60;
+  const pw = Wg - mL - mR, ph = Hg - mT - mB;
+  const ax = AXES[graphMode];
+  const Y = v => mT + ph*(1 - v/ax.max);
+  c.clearRect(0, 0, Wg, Hg);
+
+  c.lineWidth = 1; c.strokeStyle = "#262626";
+  c.font = `15px ${SERIF}`; c.fillStyle = COL.fg; c.textAlign = "right"; c.textBaseline = "middle";
+  for (let v = 0; v <= ax.max + 1e-9; v += ax.step){
+    c.beginPath(); c.moveTo(mL, Y(v)); c.lineTo(mL + pw, Y(v)); c.stroke();
+    c.fillText(fmt(v, 0), mL - 8, Y(v));
+  }
+  c.strokeStyle = COL.fg; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(mL, mT); c.lineTo(mL, mT + ph); c.lineTo(mL + pw, mT + ph); c.stroke();
+  rich(c, [[ax.sym, true], [` / ${ax.unit}`, false]], mL - 8, mT - 16, "left", 17, COL.fg);
+
+  if (graphMode === "U"){
+    c.setLineDash([5, 6]); c.strokeStyle = COL.red; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(mL, Y(U0)); c.lineTo(mL + pw, Y(U0)); c.stroke(); c.setLineDash([]);
+    c.fillStyle = COL.red; c.font = `15px ${SERIF}`; c.textAlign = "right"; c.textBaseline = "bottom";
+    c.fillText("kildens spænding", mL + pw - 4, Y(U0) - 3);
+  }
+
+  const groups = [[bands.A, COL.A, "A · parallel"], [bands.B, COL.B, "B · serie"]];
+  const gw = pw/2, bw = Math.min(70, gw*0.28);
+  groups.forEach(([b, col, lab], gi) => {
+    const st = stOf(b), ramp = glowRamp(b);
+    const gx = mL + gw*(gi + 0.5);
+    [1, 2].forEach((idx, bi) => {
+      const x = gx + (bi ? 0.12*gw : -0.12*gw - bw);
+      const val = st[ax.sym + idx]*ramp;
+      const y = Y(Math.min(val, ax.max));
+      c.fillStyle = bi ? col + "88" : col;
+      c.fillRect(x, y, bw, mT + ph - y);
+      c.strokeStyle = col; c.lineWidth = 1.6; c.strokeRect(x, y, bw, mT + ph - y);
+      if (ramp > 0){
+        c.font = `${narrow ? 13 : 15}px ${SERIF}`; c.fillStyle = COL.fg; c.textAlign = "center"; c.textBaseline = "bottom";
+        c.fillText(`${fmt(st[ax.sym + idx], ax.dec)} ${ax.unit}`, x + bw/2, y - 4);
+      }
+      rich(c, [[`Pære ${idx}`, false]], x + bw/2, mT + ph + 20, "center", narrow ? 13 : 15, COL.dim);
+    });
+    rich(c, [[lab, false]], gx, mT + ph + 46, "center", narrow ? 15 : 17, col);
+  });
+}
+
+// ---------- styring ----------
+function updateUI(){
+  for (const b of Object.values(bands)){
+    const lk = locked(b);
+    b.sec.classList.toggle("locked", lk);
+    b.preds.forEach(p => {
+      p.disabled = lk || b.on || b.done;
+      p.classList.toggle("sel", b.pred === p.dataset.p);
+    });
+    b.start.disabled = lk || !b.pred;
+    b.start.textContent = b.on ? "❚❚ Sluk" : (b.done ? "▶ Tænd igen" : "▶ Tænd");
+    b.hint.textContent = lk ? "Kør først parallelkoblingen." : (!b.pred ? "Vælg din forudsigelse." : "");
+  }
+  btnWhy.disabled = !(bands.A.done && bands.B.done);
+}
+
+function verdict(b){
+  const st = stOf(b);
+  let txt;
+  if (Math.abs(st.P1 - st.P2) < 1e-9) txt = `Pærerne lyser <span class="cS">lige kraftigt</span>, ${fmt(st.P1, 1)} W hver.`;
+  else {
+    const w = st.P1 > st.P2 ? "1" : "2";
+    txt = `<b>Pære ${w}</b> lyser kraftigst, ${fmt(Math.max(st.P1, st.P2), 1)} W mod ${fmt(Math.min(st.P1, st.P2), 1)} W.`;
+  }
+  const pName = b.pred === "S" ? "lige kraftigt" : "pære " + b.pred;
+  return `${txt} Du forudsagde ${pName}.`;
+}
+
+function finish(b){
+  b.done = true;
+  b.res.innerHTML = verdict(b) + (b.key === "A" ? ` <span class="hint">Nu de samme to pærer i serie.</span>` : "");
+  if (bands.A.done && bands.B.done){
+    summaryEl.innerHTML = `Samlet effekt fra kilden: <span class="cA">${fmt(sol.par.P, 1)} W</span> i parallelkoblingen og <span class="cB">${fmt(sol.ser.P, 1)} W</span> i seriekoblingen.`;
+  }
+  updateUI();
+}
+
+function resetAll(clearPred){
+  for (const b of Object.values(bands)){
+    b.on = false; b.t = 0; b.done = false; b.phase = {}; b.res.innerHTML = ""; b.tableKey = "";
+    if (clearPred) b.pred = null;
+  }
+  summaryEl.innerHTML = "";
+  updateUI();
+}
+
+for (const b of Object.values(bands)){
+  b.preds.forEach(p => p.addEventListener("click", () => { b.pred = p.dataset.p; updateUI(); }));
+  b.start.addEventListener("click", () => {
+    if (locked(b) || !b.pred) return;
+    b.on = !b.on; b.t = 0;
+    updateUI();
+  });
+}
+document.getElementById("reset").addEventListener("click", () => resetAll(true));
+document.getElementById("tempo").addEventListener("change", e => { tempo = parseFloat(e.target.value); });
+
+const r2In = document.getElementById("r2"), r2Val = document.getElementById("r2val");
+r2In.addEventListener("input", () => {
+  R2 = parseInt(r2In.value, 10); r2Val.textContent = R2 + " Ω";
+  sol = solve(R1, R2, U0); resetAll(true);
+});
+
+const togs = [...document.querySelectorAll("button.tog")];
+togs.forEach(t => t.addEventListener("click", () => {
+  graphMode = t.dataset.g; togs.forEach(u => u.classList.toggle("on", u === t));
+}));
+
+// ---------- forklaring ----------
+const WHY_PARAS = [
+  String.raw`## Parallelkobling: samme spændingsfald`,
+  String.raw`I parallelkoblingen er hver pære forbundet direkte til kildens to poler. Ledningerne har ingen resistans, så spændingsfaldet over hver pære er lig med kildens spænding: $$U_1 = U_2 = U = 12\ \text{V}.$$ Strømstyrken gennem hver pære finder vi med Ohms lov, $I = \dfrac{U}{R}$: $$I_1 = \frac{12\ \text{V}}{4\ \Omega} = 3{,}00\ \text{A}, \qquad I_2 = \frac{12\ \text{V}}{8\ \Omega} = 1{,}50\ \text{A}.$$ Effekten er $P = U\cdot I$: $$P_1 = 12\ \text{V}\cdot 3{,}00\ \text{A} = 36{,}0\ \text{W}, \qquad P_2 = 12\ \text{V}\cdot 1{,}50\ \text{A} = 18{,}0\ \text{W}.$$ Pære 1 lyser kraftigst.`,
+  String.raw`Generelt kan vi sætte $I = \dfrac{U}{R}$ ind i $P = U\cdot I$: $$P = U\cdot\frac{U}{R} = \frac{U^2}{R}.$$ Når $U$ er den samme for begge pærer, får pæren med den *mindste* resistans den største effekt. Den lukker mest strøm igennem ved det samme spændingsfald.`,
+  String.raw`I forgreningen deler strømmen sig, og ingen ladning går tabt. Det er Kirchhoffs 1. lov: $$I = I_1 + I_2 = 3{,}00\ \text{A} + 1{,}50\ \text{A} = 4{,}50\ \text{A}.$$ Det kan du se på prikkerne. De ligger lige tæt i alle ledninger, og deres fart er proportional med strømstyrken. Derfor løber de hurtigst i ledningen ved kilden.`,
+  String.raw`## Seriekobling: samme strømstyrke`,
+  String.raw`I seriekoblingen skal al ladning igennem begge pærer, og ladningen bliver ikke brugt op undervejs. Derfor er strømstyrken den samme i begge pærer. Erstatningsresistansen er $$R_{\text{serie}} = R_1 + R_2 = 4\ \Omega + 8\ \Omega = 12\ \Omega,$$ så strømstyrken bliver $$I = \frac{U}{R_{\text{serie}}} = \frac{12\ \text{V}}{12\ \Omega} = 1{,}00\ \text{A}.$$ Spændingsfaldene over pærerne findes med Ohms lov, $U = R\cdot I$: $$U_1 = 4\ \Omega\cdot 1{,}00\ \text{A} = 4{,}00\ \text{V}, \qquad U_2 = 8\ \Omega\cdot 1{,}00\ \text{A} = 8{,}00\ \text{V}.$$ Tilsammen giver det $4{,}00\ \text{V} + 8{,}00\ \text{V} = 12{,}0\ \text{V}$, som Kirchhoffs 2. lov siger. Effekterne er $$P_1 = U_1\cdot I = 4{,}00\ \text{V}\cdot 1{,}00\ \text{A} = 4{,}00\ \text{W}, \qquad P_2 = U_2\cdot I = 8{,}00\ \text{V}\cdot 1{,}00\ \text{A} = 8{,}00\ \text{W}.$$ Nu er det pære 2, der lyser kraftigst.`,
+  String.raw`Generelt kan vi sætte $U = R\cdot I$ ind i $P = U\cdot I$: $$P = R\cdot I\cdot I = R\cdot I^2.$$ Når $I$ er den samme for begge pærer, får pæren med den *største* resistans den største effekt. Den tager den største del af kildens spænding.`,
+  String.raw`## Samme pærer, modsat svar`,
+  String.raw`Begge formler, $P = \dfrac{U^2}{R}$ og $P = R\cdot I^2$, gælder altid for begge pærer. Kunsten er at bruge den formel, hvor den *fælles* størrelse indgår: spændingsfaldet i parallelkoblingen og strømstyrken i seriekoblingen. Med den ene formel vinder den mindste resistans, med den anden vinder den største. Derfor bytter pærerne plads.`,
+  String.raw`## Hvorfor lyser seriekoblingen så svagt?`,
+  String.raw`Ingen af pærerne i seriekoblingen får mere end $8{,}00\ \text{W}$, selvom den svageste pære i parallelkoblingen får $18{,}0\ \text{W}$. I seriekoblingen skal strømmen igennem begge resistanser, så erstatningsresistansen er stor. I parallelkoblingen har strømmen to veje, og erstatningsresistansen bliver mindre end hver af de to resistanser: $$\begin{aligned} \frac{1}{R_{\text{parallel}}} &= \frac{1}{4\ \Omega} + \frac{1}{8\ \Omega} = \frac{2}{8\ \Omega} + \frac{1}{8\ \Omega} = \frac{3}{8\ \Omega} \\[4pt] R_{\text{parallel}} &= \frac{8}{3}\ \Omega = 2{,}67\ \Omega \end{aligned}$$ Den samlede effekt fra kilden er derfor $$\begin{aligned} P_{\text{parallel}} &= \frac{U^2}{R_{\text{parallel}}} = \frac{(12\ \text{V})^2}{\tfrac{8}{3}\ \Omega} = \frac{144\ \text{V}^2\cdot 3}{8\ \Omega} = 54{,}0\ \text{W} \\[4pt] P_{\text{serie}} &= \frac{U^2}{R_{\text{serie}}} = \frac{(12\ \text{V})^2}{12\ \Omega} = \frac{144\ \text{V}^2}{12\ \Omega} = 12{,}0\ \text{W} \end{aligned}$$ Det passer med $36{,}0\ \text{W} + 18{,}0\ \text{W} = 54{,}0\ \text{W}$ og $4{,}00\ \text{W} + 8{,}00\ \text{W} = 12{,}0\ \text{W}$.`,
+  String.raw`## Prøv selv`,
+  String.raw`Sæt $R_2 = 4\ \Omega$. Hvad sker der i de to kredsløb? Hvad sker der, når $R_2$ er mindre end $R_1$? Find den værdi af $R_2$, der giver pære 2 den største effekt i seriekoblingen. Hvorfor bliver effekten ikke bare større og større, når $R_2$ vokser? Tænk på, hvad der sker med strømstyrken.`,
+  String.raw`## Bemærkninger`,
+  String.raw`Kredsløbet er idealt: kilden holder $12\ \text{V}$ uanset strømstyrken (ingen indre resistans), og ledningerne har ingen resistans.`,
+  String.raw`Pærernes resistans regnes konstant. I en rigtig glødepære vokser glødetrådens resistans med temperaturen. I seriekoblingen får pære 1 mindst effekt og bliver koldest, så dens resistans bliver relativt endnu mindre end pære 2's. Forskellen mellem pærerne bliver altså endnu større, og konklusionen ændres ikke.`,
+  String.raw`Gløden vokser med effekten, og farven går fra orange ved lille effekt mod varmt hvidt ved stor effekt. Sådan opfører en rigtig glødepære sig også: ved lille effekt gløder den rødligt og giver forholdsvis endnu mindre synligt lys.`,
+  String.raw`Prikkerne viser strømretningen, fra $+$ mod $-$ uden for kilden. Elektronerne bevæger sig den modsatte vej. Prikkernes fart er proportional med strømstyrken. Elektronernes virkelige drifthastighed er meget lille, typisk under $1\ \text{mm/s}$.`
+];
+function mdToHtml(s){ return s.replace(/\*([^*$]+)\*/g, "<em>$1</em>"); }
+const modal = document.getElementById("modal"), whyBody = document.getElementById("whyBody");
+whyBody.innerHTML = WHY_PARAS.map(p => p.startsWith("## ") ? `<h3>${p.slice(3)}</h3>` : `<p>${mdToHtml(p)}</p>`).join("");
+let mathRendered = false;
+btnWhy.addEventListener("click", () => {
+  modal.classList.add("open");
+  if (!mathRendered && window.renderMathInElement){
+    renderMathInElement(whyBody, { delimiters: [{left:"$$", right:"$$", display:true}, {left:"$", right:"$", display:false}], throwOnError:false });
+    mathRendered = true;
+  }
+});
+document.getElementById("close").addEventListener("click", () => modal.classList.remove("open"));
+modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("open"); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") modal.classList.remove("open"); });
+document.getElementById("copy").addEventListener("click", async (e) => {
+  const text = "Hvad afgør, hvilken pære lyser kraftigst?\n\n" + WHY_PARAS.map(p => p.replace(/^## /, "")).join("\n\n");
+  try { await navigator.clipboard.writeText(text); e.target.textContent = "Kopieret ✓"; }
+  catch { e.target.textContent = "Kunne ikke kopiere"; }
+  setTimeout(() => e.target.textContent = "Kopiér tekst", 1600);
+});
+
+// ---------- løkke ----------
+let last = null;
+function frame(ms){
+  const now = ms/1000;
+  if (last === null) last = now;
+  const dt = Math.min(0.05, now - last); last = now;
+  for (const b of Object.values(bands)){
+    if (b.on){
+      b.t += dt;
+      if (currentOn(b)){
+        const g = geom(b), P = paths(b, g);
+        for (const k in P) b.phase[k] = (b.phase[k] || 0) + KDOT*tempo*dt*pathCurrent(b, k);
+      }
+      if (!b.done && b.t >= T_VERDICT) finish(b);
+    }
+    drawBand(b);
+    updateTable(b);
+  }
+  drawGraph();
+  requestAnimationFrame(frame);
+}
+
+layout(); updateUI();
+window.addEventListener("resize", layout);
+if (window.ResizeObserver){
+  const ro = new ResizeObserver(() => layout());
+  Object.values(bands).forEach(b => ro.observe(b.cv)); ro.observe(gv);
+}
+if (document.fonts){
+  document.fonts.load(`16px ${SERIF}`).catch(() => {});
+  document.fonts.load(`italic 16px ${MATH}`).catch(() => {});
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
